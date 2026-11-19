@@ -25,6 +25,8 @@ minis/
 | `listening-audio-analysis` | 转写考试听力音频为中英对照原文，并结合试卷照片做逐题解析 |
 | `precise-code-edit` | 精确编辑已有代码：计数断言替换 + 语法/悬空引用/清单 diff 四级自检 |
 | `code-review-subagent` | 编辑后派子代理通读整文件复核并迭代到收敛的流程 |
+| `dictation-sheet` | 把英语短文做成 Vim 风四档递进挖词默写单（单文件 HTML，可打印） |
+| `exam-vocab` | 把英语试卷整理成按 CEFR 分级的生词表单文件 HTML（需牛津高阶词典索引） |
 | `skill-creator` | 编写/更新技能的规范指南 |
 
 ## 使用
