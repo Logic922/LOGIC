@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>test</title>
+<script src="engine.js"></script>
+<script>
+window.__result = (function(){
+  var E = window.WaveEngine;
+  function peaks(arr){
+    var out=[],n=arr.length,mx=0,i;
+    for(i=0;i<n;i++) if(arr[i]>mx) mx=arr[i];
+    for(i=1;i<n-1;i++) if(arr[i]>arr[i-1]&&arr[i]>=arr[i+1]&&arr[i]>0.02*mx) out.push({z:i,v:arr[i]});
+    return out;
+  }
+  function run(scene,params,steps){
+    var e=E.create(); e.setScene(scene);
+    for(var k in params) e.setParam(k,params[k]);
+    for(var s=0;s<steps;s++) e.step();
+    return e;
+  }
+  var lines=[];
+  var e=run('double',{lambda:12,a:16,d:46,screenDist:78},4000);
+  var pk=peaks(Array.prototype.slice.call(e.intensity));
+  var dz=[];
+  for(var i=1;i<pk.length;i++) dz.push((pk[i].z-pk[i-1].z).toFixed(1));
+  lines.push('DOUBLE λ12 d46: 理论间距='+(12*78/46).toFixed(1)+' 实测='+dz.join(','));
+
+  var e2=run('single',{lambda:12,a:16,screenDist:78},4000);
+  var pk2=peaks(Array.prototype.slice.call(e2.intensity));
+  lines.push('SINGLE λ12 a16: 首暗纹理论 z=cz±'+(12*78/16).toFixed(1)+' 峰值='+pk2.map(function(p){return p.z+':'+p.v.toFixed(2);}).join(','));
+
+  var e3=run('double',{lambda:20,a:16,d:46,screenDist:78},4000);
+  var pk3=peaks(Array.prototype.slice.call(e3.intensity));
+  var dz3=[];
+  for(var i=1;i<pk3.length;i++) dz3.push((pk3[i].z-pk3[i-1].z).toFixed(1));
+  lines.push('DOUBLE λ20 d46: 理论间距='+(20*78/46).toFixed(1)+' 实测='+dz3.join(','));
+
+  var e4=run('edge',{lambda:12,edge:0.5,screenDist:78},4000);
+  var it4=Array.prototype.slice.call(e4.intensity);
+  var cut=Math.round(0.5*e4.nz);
+  lines.push('EDGE: 阴影深处强度='+it4[cut-40].toFixed(3)+' 开放区='+it4[cut+40].toFixed(3)+' 边界样本='+it4.slice(cut-5,cut+6).map(function(v){return v.toFixed(2);}).join(','));
+
+  var e5=run('hole',{lambda:12,D:40,screenDist:78},4000);
+  var it5=Array.prototype.slice.call(e5.intensity);
+  var cz=e5.meta.cz;
+  lines.push('HOLE D40: 中心='+it5[cz].toFixed(3)+' z±30='+it5[cz+30].toFixed(3)+'/'+it5[cz-30].toFixed(3));
+  return lines.join('\n');
+})();
+</script>
