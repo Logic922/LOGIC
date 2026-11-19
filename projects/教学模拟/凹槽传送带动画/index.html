@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>凹槽A · 滑块B · 传送带C — 运动模拟</title>
+<link rel="stylesheet" href="style.css?v=22" />
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hd">
+    <div class="title">
+      <h1>凹槽 A · 滑块 B · 传送带上的 C</h1>
+      <p class="meta">m<sub>A</sub>=2 kg · m<sub>B</sub>=0.5 kg · m<sub>C</sub>=6 kg · L=8 m · μ₁=0.2 · μ₂=0.5 · v₀=10 m/s · 带速 2 m/s（向左）</p>
+    </div>
+    <div class="clock"><span id="tval">0.00</span><em>s</em></div>
+  </header>
+
+  <main class="stage">
+    <figure class="card" id="cardA">
+      <figcaption><b>① 凹槽里的往复碰撞</b><span>镜头跟随 A · 碰撞全弹性</span></figcaption>
+      <canvas id="cvA"></canvas>
+      <div class="hud" id="hudA"></div>
+    </figure>
+    <figure class="card" id="cardC">
+      <figcaption><b>② 传送带上的 C</b><span>带面 2 m/s 向左 · μ₂=0.5</span></figcaption>
+      <canvas id="cvC"></canvas>
+      <div class="hud" id="hudC"></div>
+    </figure>
+  </main>
+
+  <section class="card overview">
+    <div class="ovhead">全景位置（真实相对位置）</div>
+    <canvas id="cvO"></canvas>
+  </section>
+
+  <section class="card bar">
+    <canvas id="cvT"></canvas>
+    <div class="btns">
+      <button id="btnPlay" class="primary">暂停</button>
+      <button id="btnReset">重来</button>
+      <div class="spd" id="spd">
+        <button data-s="0.15">0.15×</button>
+        <button data-s="0.35" class="on">0.35×</button>
+        <button data-s="0.7">0.7×</button>
+        <button data-s="1">1×</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="readouts">
+    <div class="ro" id="roPhase"></div>
+    <div class="grid" id="roGrid"></div>
+  </section>
+
+</div>
+<script src="app.js?v=22"></script>
+</body>
+</html>
