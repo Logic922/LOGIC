@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0c11">
+<title>LOGIC · 作品集</title>
+<meta name="description" content="单文件前端、物理解说动画、8-bit 播放器，和一个 AI 助手的配置仓库。">
+<style>
+  :root{
+    --bg:#0a0c11; --ink:#e9ecf3; --dim:#8d95a8; --faint:#5d6579;
+    --line:rgba(255,255,255,.08); --card:rgba(255,255,255,.025);
+    --accent:#7ee0c9; --accent2:#9b8cff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(60% 40% at 15% 0%, rgba(126,224,201,.10), transparent 60%),
+      radial-gradient(50% 40% at 90% 10%, rgba(155,140,255,.10), transparent 60%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:72px 24px 96px}
+
+  header{margin-bottom:64px}
+  .mark{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+  .mono{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  h1{margin:0 0 14px;font-size:clamp(30px,7vw,54px);line-height:1.15;letter-spacing:-.02em;font-weight:700;text-wrap:balance}
+  h1 em{font-style:normal;background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{max-width:640px;margin:0;color:var(--dim);font-size:17px}
+  .lead code{font:13px/1 ui-monospace,Menlo,monospace;color:var(--accent);background:rgba(126,224,201,.08);padding:3px 6px;border-radius:5px}
+
+  h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
+     margin:56px 0 18px;display:flex;align-items:center;gap:12px;font-weight:600}
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .card{
+    position:relative;display:flex;flex-direction:column;gap:10px;
+    padding:22px;border:1px solid var(--line);border-radius:14px;
+    background:var(--card);text-decoration:none;color:inherit;
+    transition:transform .18s ease,border-color .18s ease,background .18s ease;
+  }
+  .card:hover{transform:translateY(-3px);border-color:rgba(126,224,201,.35);background:rgba(255,255,255,.05)}
+  .card h3{margin:0;font-size:18px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .card p{margin:0;color:var(--dim);font-size:14.5px;flex:1}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .tag{font:11px/1 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:var(--faint);
+       border:1px solid var(--line);border-radius:999px;padding:5px 9px}
+  .go{font:12px/1 ui-monospace,Menlo,monospace;color:var(--accent);letter-spacing:.06em;opacity:.85}
+  .card:hover .go{opacity:1}
+  .star{font-size:11px;color:var(--accent2);border:1px solid rgba(155,140,255,.35);
+        border-radius:999px;padding:2px 8px;font-weight:500;letter-spacing:.04em}
+
+  .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .btn{font-size:13.5px;padding:9px 16px;border-radius:9px;border:1px solid var(--line);
+       color:var(--ink);text-decoration:none;transition:.16s}
+  .btn:hover{border-color:rgba(126,224,201,.4);background:rgba(126,224,201,.07)}
+  .btn.primary{background:var(--accent);color:#04120f;border-color:transparent;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.08)}
+
+  footer{margin-top:72px;padding-top:26px;border-top:1px solid var(--line);
+         color:var(--faint);font-size:13px;display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+  footer a{color:var(--dim);text-decoration:none}
+  footer a:hover{color:var(--accent)}
+
+  @media (max-width:520px){
+    .wrap{padding:48px 18px 72px}
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark"><span class="dot"></span><span class="mono">LOGIC · 个人作品集</span></div>
+    <h1>把题目做成<em>能动手的东西</em>。</h1>
+    <p class="lead">
+      单文件前端、物理解说动画、8-bit 播放器，还有一个跑在 iOS 上的 AI 助手配置仓库。
+      全部零构建 —— 点开就能跑，不用 npm，不用等编译。
+    </p>
+    <div class="row">
+      <a class="btn primary" href="#works">看看作品</a>
+      <a class="btn" href="https://github.com/Logic922/LOGIC">GitHub 源码</a>
+    </div>
+  </header>
+
+  <h2 id="works">作品</h2>
+  <div class="grid">
+
+    <a class="card" href="projects/midi8bit/index.html">
+      <h3>MIDI8BIT <span class="star">主打</span></h3>
+      <p>单文件 8-bit MIDI 播放器。导入 MIDI，实时渲染成 chiptune，带播放列表、预热缓存与四档位深导出。</p>
+      <div class="tags"><span class="tag">Web Audio</span><span class="tag">115 KB</span><span class="tag">单文件</span></div>
+      <span class="go">打开播放器 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/波沙盒/index.html">
+      <h3>波的干涉 / 衍射沙盒</h3>
+      <p>Three.js 写的 3D 波场沙盒，可拖波源看干涉条纹与惠更斯原理的实时演化。</p>
+      <div class="tags"><span class="tag">Three.js</span><span class="tag">物理</span><span class="tag">3D</span></div>
+      <span class="go">打开沙盒 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/圆环三球/anim.html">
+      <h3>三球圆环</h3>
+      <p>圆周运动与约束问题：运动动画，外加一份第 (3) 问的优雅解法。</p>
+      <div class="tags"><span class="tag">圆周运动</span><span class="tag">动画</span><span class="tag">解题</span></div>
+      <span class="go">看动画 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/斜面圆弧动铰摆.html">
+      <h3>斜面 · 圆弧 · 动铰摆</h3>
+      <p>复合轨道的运动学演示，动铰摆与斜面圆弧衔接处的速度关系看得见。</p>
+      <div class="tags"><span class="tag">运动学</span><span class="tag">单文件</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/摆的沙盒.html">
+      <h3>摆的沙盒</h3>
+      <p>单摆 / 动铰摆的交互沙盒，拖参数看周期与轨迹怎么变。</p>
+      <div class="tags"><span class="tag">单摆</span><span class="tag">交互</span><span class="tag">单文件</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/圆环碰撞.html">
+      <h3>圆环碰撞</h3>
+      <p>三球在圆环内的碰撞与运动动画，单文件版本。</p>
+      <div class="tags"><span class="tag">碰撞</span><span class="tag">动画</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/凹槽传送带动画/index.html">
+      <h3>凹槽 · 滑块 · 传送带</h3>
+      <p>传送带模型三件套：凹槽 A、滑块 B、传送带 C 的相对运动模拟，HTML/CSS/JS 分层写的。</p>
+      <div class="tags"><span class="tag">相对运动</span><span class="tag">传送带</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+    <a class="card" href="projects/教学模拟/CO2制甲醇演示/index.html">
+      <h3>CO₂ 制甲醇</h3>
+      <p>CO₂ 加氢制甲醇的分流机制与反应速率演示，双页结构。</p>
+      <div class="tags"><span class="tag">化学</span><span class="tag">速率</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+  </div>
+
+  <h2>小玩意</h2>
+  <div class="grid">
+    <a class="card" href="奇怪小制作/Chat.html">
+      <h3>月见 · 私语</h3>
+      <p>40 KB 单文件聊天界面：深色玻璃拟态，可接任意 OpenAI 兼容接口，Key 只存在本地。</p>
+      <div class="tags"><span class="tag">LLM</span><span class="tag">单文件</span><span class="tag">零依赖</span></div>
+      <span class="go">打开 →</span>
+    </a>
+
+    <a class="card" href="https://github.com/Logic922/LOGIC/tree/main/minis">
+      <h3>Minis 助手配置</h3>
+      <p>跑在 iOS 上的 AI 助手的全局提示词、人格文件，和 12 个自建技能（iSH 下载、数学制图、中文 PDF、精确编辑……）。</p>
+      <div class="tags"><span class="tag">Prompt</span><span class="tag">Skills</span><span class="tag">iOS</span></div>
+      <span class="go">看仓库 →</span>
+    </a>
+  </div>
+
+  <h2>关于</h2>
+  <p style="color:var(--dim);max-width:700px;margin:0">
+    大部分东西是为了把某个具体题目讲清楚才写的，所以数值和场景常常只对得上那一题。
+    代码以实用为主，注释是给自己看的。所有作品都是纯前端、无构建、可离线运行 —— 除了需要调 API 的那几个。
+  </p>
+
+  <footer>
+    <span>© 2026 LOGIC · 用单文件搭起来的</span>
+    <span>
+      <a href="https://github.com/Logic922/LOGIC">源码</a> ·
+      <a href="https://github.com/Logic922/MIDI8BIT">MIDI8BIT</a> ·
+      <a href="https://github.com/Logic922">GitHub</a>
+    </span>
+  </footer>
+
+</div>
+</body>
+</html>
