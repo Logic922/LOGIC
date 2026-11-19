@@ -64,6 +64,15 @@ Minis 是 iOS 上的 AI 助手，内置 iSH / Alpine Linux 环境，可以跑真
 
 ---
 
+## MIDI8BIT — 独立项目
+
+在线版：[logic922.github.io/MIDI8BIT](https://logic922.github.io/MIDI8BIT/) · 源码：[Logic922/MIDI8BIT](https://github.com/Logic922/MIDI8BIT)
+
+单文件 8-bit MIDI 播放器（Web Audio，示波器 / 音符卷帘 / 播放列表 / 后台预渲染 / 四档位深导出），
+带 manifest + service worker，可装到桌面当 PWA 用。源码与构建流程在本仓库之外单独维护。
+
+---
+
 ## projects/教学模拟/ — 课堂演示
 
 单文件 HTML / 纯前端，双击即开，无需联网。
