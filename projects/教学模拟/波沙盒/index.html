@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#05070d">
+<title>波的干涉 / 衍射 · 3D 沙盒</title>
+<style>
+  :root{
+    --accent:#3ea6ff;
+    --accent2:#0fd4ff;
+    --glass:rgba(14,21,36,.62);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;width:100%;
+    background:#05070d;color:#dbe7ff;
+    overflow:hidden;position:fixed;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-user-select:none;user-select:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+
+  /* ---------- HUD 容器 ---------- */
+  #ui{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;justify-content:space-between;
+    pointer-events:none;
+  }
+  #ui > *{pointer-events:none;}
+  #top{
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 0 14px;
+  }
+  #title{
+    font-size:16px;font-weight:650;letter-spacing:.02em;
+    color:#eaf3ff;text-shadow:0 0 18px rgba(60,150,255,.55);
+    display:flex;align-items:baseline;gap:8px;
+  }
+  #title small{
+    font-size:10.5px;font-weight:500;letter-spacing:.06em;
+    color:#6f8dbb;text-transform:uppercase;
+  }
+  /* ---------- 场景 chips ---------- */
+  #chips{
+    margin-top:10px;display:flex;gap:7px;overflow-x:auto;
+    padding:2px 0 4px 0;pointer-events:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  #chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;padding:7px 15px;border-radius:999px;
+    font-size:13px;font-weight:560;line-height:1.1;
+    color:#a9c2e6;
+    background:rgba(22,32,52,.55);
+    border:1px solid rgba(120,170,255,.16);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    transition:all .18s ease;
+  }
+  .chip.on{
+    color:#02121f;font-weight:700;
+    background:linear-gradient(135deg,#5cb8ff,#0fd4ff 60%,#8ce9ff);
+    border-color:rgba(160,230,255,.75);
+    box-shadow:0 0 16px rgba(60,190,255,.55),0 0 34px rgba(20,140,255,.28);
+  }
+  .chip:active{transform:scale(.96);}
+
+  /* ---------- 底部面板 ---------- */
+  #panel-wrap{
+    padding:0 10px calc(env(safe-area-inset-bottom,0px) + 10px) 10px;
+    pointer-events:none;
+  }
+  #panel{
+    pointer-events:none;
+    max-height:47vh;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:12px 14px 10px 14px;
+    border-radius:20px;
+    background:linear-gradient(180deg,rgba(20,30,50,.72),rgba(7,11,20,.86));
+    border:1px solid rgba(120,170,255,.14);
+    box-shadow:0 -8px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(160,200,255,.10);
+    backdrop-filter:blur(20px) saturate(150%);
+    -webkit-backdrop-filter:blur(20px) saturate(150%);
+    scrollbar-width:none;
+  }
+  #panel::-webkit-scrollbar{display:none;}
+
+  .row{margin-bottom:9px;}
+  .row:last-child{margin-bottom:2px;}
+  .row.hide{display:none;}
+  .lbl{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:12px;line-height:1.25;margin-bottom:2px;
+  }
+  .lbl .nm{color:#93aacb;font-weight:500;letter-spacing:.01em;}
+  .lbl .vl{color:#e8f4ff;font-weight:650;font-variant-numeric:tabular-nums;}
+  .lbl .vl em{
+    font-style:normal;font-weight:500;font-size:10.5px;
+    color:#37b6ff;margin-left:5px;letter-spacing:.01em;
+  }
+
+  input[type=range]{
+    pointer-events:auto;
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:20px;background:transparent;display:block;margin:0;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:3px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(60,150,255,.85),rgba(15,212,255,.55) 65%,rgba(120,150,200,.18));
+    box-shadow:0 0 10px rgba(40,140,255,.25);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:17px;height:17px;border-radius:50%;margin-top:-7px;
+    background:radial-gradient(circle at 34% 30%,#ffffff,#7fd0ff 45%,#1c69d8 100%);
+    border:1px solid rgba(200,240,255,.85);
+    box-shadow:0 0 10px rgba(80,190,255,.9),0 0 20px rgba(30,120,255,.45);
+  }
+
+  #btns{display:flex;gap:9px;margin-top:11px;align-items:center;}
+  .btn{
+    pointer-events:auto;
+    flex:1;padding:9px 10px;border-radius:13px;
+    font-size:12.5px;font-weight:640;letter-spacing:.02em;
+    text-align:center;color:#cfe4ff;
+    background:rgba(40,62,98,.45);
+    border:1px solid rgba(120,170,255,.22);
+    transition:all .16s ease;
+  }
+  .btn:active{transform:scale(.97);background:rgba(60,100,160,.55);}
+  .btn.primary{
+    color:#03131f;
+    background:linear-gradient(135deg,#63c2ff,#12d6ff);
+    border-color:rgba(160,230,255,.8);
+    box-shadow:0 0 18px rgba(50,190,255,.45);
+  }
+  /* 横屏：滑块两列排布，面板更紧凑，避免挡住 3D 画面 */
+  @media (min-aspect-ratio: 1/1){
+    #panel{max-height:52vh;padding:10px 14px 8px 14px;}
+    #rows{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;}
+    .row{margin-bottom:5px;}
+    #btns{margin-top:6px;}
+    #hint{margin-top:5px;}
+  }
+  #hint{
+    margin-top:8px;font-size:10px;color:#4d688e;text-align:center;
+    line-height:1.3;letter-spacing:.02em;
+  }
+  #fps{
+    position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 14px);
+    font-size:10px;color:#3f5b80;font-variant-numeric:tabular-nums;
+    z-index:11;pointer-events:none;letter-spacing:.04em;
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="ui">
+  <div id="top">
+    <div id="title">波的干涉 · 衍射 <small>3D sandbox</small></div>
+    <div id="chips"></div>
+  </div>
+  <div id="panel-wrap">
+    <div id="panel">
+      <div id="rows"></div>
+      <div id="btns">
+        <div class="btn primary" id="play">暂停</div>
+        <div class="btn" id="resetview">重置视角</div>
+      </div>
+      <div id="hint">波峰橙金 · 波谷青蓝　|　单指拖动旋转 · 双指捏合缩放</div>
+    </div>
+  </div>
+</div>
+<div id="fps"></div>
+
+<script src="three.min.js"></script>
+<script src="engine.js?v=11"></script>
+<script>
+/* ==========================================================================
+ * 渲染 + UI 层（不含任何物理逻辑；物理全部来自 engine.js 的 window.WaveEngine）
+ * ==========================================================================*/
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------- 常量 */
+  var E      = WaveEngine.create();     // 物理引擎实例（只读属性 + step/setParam）
+  var NX     = E.nx, NZ = E.nz;         // 220 x 170
+  var CELL   = 0.12;                    // 网格 → 世界单位
+  var HS     = CELL * 6.0;              // 振幅 → 世界 Y 的缩放
+  var CZ     = E.meta.cz;               // 网格中心行
+  var BARX   = E.barX;                  // 挡板列
+  var FIELD_W = NZ * CELL;              // 波场 Z 方向总宽 ≈ 20.4
+  var WALL_H = 3.05, WALL_Y = 0.45, WALL_T = CELL * 1.5;
+  var SCREEN_H = 2.8, SCREEN_Y = 0.62;
+  var FLOOR_Y = -1.18;
+
+  var WX = new Float32Array(NX), WZ = new Float32Array(NZ);
+  var CXG = (NX - 1) / 2;                                        // 波场中心列
+  for (var _x = 0; _x < NX; _x++) WX[_x] = (_x - CXG) * CELL;    // 波场中心在 X=0（坐标系原点）
+  for (var _z = 0; _z < NZ; _z++) WZ[_z] = (_z - CZ) * CELL;     // 缝中心在 Z=0（坐标系原点）
+
+  /* -------------------------------------------------------------- renderer */
+  var canvas = document.getElementById('gl');
+  var renderer = new THREE.WebGLRenderer({
+    canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance'
+  });
+  var DPR = Math.min(window.devicePixelRatio || 1, 1.8);
+  renderer.setPixelRatio(DPR);
+  renderer.setClearColor(0x05070d, 1);
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070d);
+
+  var camera = new THREE.PerspectiveCamera(48, 1, 0.4, 400);
+  var TARGET = new THREE.Vector3(0, 0, 0);
+
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    // 竖屏时把 FOV 放宽一点，保证 20 单位的波场横向能放下
+    camera.fov = (h > w) ? 58 : 46;
+    // 画面整体上移，让 3D 场景落在底部面板上方（不遮挡）
+    var lift = Math.round(h * 0.16);
+    if (lift) camera.setViewOffset(w, h, 0, lift, w, h);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+    // 自适应相机距离：让整个波场始终完整入画（竖屏横向视场窄，需要退更远）
+    var vf = camera.fov * Math.PI / 180;
+    var hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    var f = Math.min(vf, hf);
+    HOME.radius = clamp(Math.max(11.5 / Math.sin(f / 2), 26), 26, 95);
+    if (!userZoomed) { view.radius = HOME.radius; applyCamera(); }
+  }
+  var rzT = 0;
+  function scheduleResize() {
+    clearTimeout(rzT);
+    resize();
+    // 旋转/分屏后 WebKit 会延迟更新尺寸，补一次确保画布与视口一致
+    rzT = setTimeout(resize, 280);
+  }
+  window.addEventListener('resize', scheduleResize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 320); });
+
+  /* ------------------------------------------------------------------ 灯光 */
+  scene.add(new THREE.AmbientLight(0x2a3d5e, 1.15));
+  var dir1 = new THREE.DirectionalLight(0xbdd8ff, 1.15); dir1.position.set(9, 22, 14); scene.add(dir1);
+  var dir2 = new THREE.DirectionalLight(0x2f6dbb, 0.75); dir2.position.set(-16, 9, -14); scene.add(dir2);
+  var pl = new THREE.PointLight(0x66ccff, 0.55, 60); pl.position.set(0, 8, 6); scene.add(pl);
+
+  /* -------------------------------------------------- 发光粒子 sprite 贴图 */
+  function makeGlowSprite() {
+    var S = 64, c = document.createElement('canvas');
+    c.width = c.height = S;
+    var g = c.getContext('2d');
+    var grd = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grd.addColorStop(0.00, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.14, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.30, 'rgba(255,255,255,0.62)');
+    grd.addColorStop(0.50, 'rgba(255,255,255,0.24)');
+    grd.addColorStop(0.74, 'rgba(255,255,255,0.06)');
+    grd.addColorStop(1.00, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, S, S);
+    var t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    return t;
+  }
+
+  /* -------------------------------------------------------- 波面 Points 场 */
+  var COUNT = NX * NZ;
+  var posArr = new Float32Array(COUNT * 3);
+  var colArr = new Float32Array(COUNT * 3);
+  (function initPositions() {
+    var p = 0, z, x;
+    for (z = 0; z < NZ; z++) {
+      var wz = WZ[z];
+      for (x = 0; x < NX; x++, p += 3) {
+        posArr[p]     = WX[x];
+        posArr[p + 1] = 0;
+        posArr[p + 2] = wz;
+      }
+    }
+  })();
+
+  var waveGeo = new THREE.BufferGeometry();
+  var posAttr = new THREE.BufferAttribute(posArr, 3);
+  var colAttr = new THREE.BufferAttribute(colArr, 3);
+  posAttr.setUsage(THREE.DynamicDrawUsage);
+  colAttr.setUsage(THREE.DynamicDrawUsage);
+  waveGeo.setAttribute('position', posAttr);
+  waveGeo.setAttribute('color', colAttr);
+  waveGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 40);
+
+  var waveMat = new THREE.PointsMaterial({
+    size: 0.26,
+    map: makeGlowSprite(),
+    vertexColors: true,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true
+  });
+  waveMat.color.setRGB(1, 1, 1);
+
+  var wavePoints = new THREE.Points(waveGeo, waveMat);
+  wavePoints.frustumCulled = false;
+  scene.add(wavePoints);
+
+  /* ------------------------------------------------------------ 地面参考网格 */
+  var grid = new THREE.GridHelper(30, 30, 0x1d4a72, 0x0d1c2c);
+  grid.position.set(0, FLOOR_Y, 0);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.32;
+  grid.material.depthWrite = false;
+  scene.add(grid);
+
+  /* ---------------------------------------------------------------- 挡板 */
+  var barrierGroup = new THREE.Group();
+  scene.add(barrierGroup);
+
+  var wallMat = new THREE.MeshStandardMaterial({
+    color: 0x16203a, roughness: 0.52, metalness: 0.42,
+    emissive: 0x081018, emissiveIntensity: 1.0
+  });
+  var unitBox = new THREE.BoxGeometry(1, 1, 1);
+
+  var rimMat = new THREE.MeshBasicMaterial({ color: 0x3f7fb8, transparent: true, opacity: 0.75, depthWrite: false });
+
+  function addWallSlab(xCol, z0, z1, thick, y, h) {
+    var depth = (z1 - z0 + 1) * CELL;
+    var m = new THREE.Mesh(unitBox, wallMat);
+    m.scale.set(thick, h, depth);
+    m.position.set(WX[xCol], y, ((z0 + z1) * 0.5 - CZ) * CELL);
+    barrierGroup.add(m);
+    // 顶部一条细亮边，勾出挡板轮廓（发光波面之外的冷色对比）
+    var rim = new THREE.Mesh(unitBox, rimMat);
+    rim.scale.set(thick * 1.35, 0.035, depth);
+    rim.position.set(m.position.x, y + h * 0.5, m.position.z);
+    barrierGroup.add(rim);
+    return m;
+  }
+
+  // 直接读 engine.solid（Uint8Array, 索引 z*nx+x）重建几何，保证与物理掩码 100% 一致
+  function buildBarrier() {
+    while (barrierGroup.children.length) barrierGroup.remove(barrierGroup.children[0]);
+    var sol = E.solid, nx = E.nx, nz = E.nz;
+    var xStart = BARX;
+    var xEnd = BARX;
+    var thick = WALL_T;
+    for (var x = xStart; x <= xEnd; x++) {
+      var z = 0;
+      while (z < nz) {
+        if (sol[z * nx + x]) {
+          var z0 = z;
+          while (z < nz && sol[z * nx + x]) z++;
+          addWallSlab(x, z0, z - 1, thick, WALL_Y, WALL_H);
+        } else {
+          z++;
+        }
+      }
+    }
+  }
+
+  /* -------------------------------------------------------------- 观察屏 */
+  var SCW = 512, SCH = 8;
+  var sCanvas = document.createElement('canvas');
+  sCanvas.width = SCW; sCanvas.height = SCH;
+  var sctx = sCanvas.getContext('2d');
+  var sImg = sctx.createImageData(SCW, SCH);
+  var sTex = new THREE.CanvasTexture(sCanvas);
+  sTex.minFilter = THREE.LinearFilter;
+  sTex.magFilter = THREE.LinearFilter;
+  sTex.generateMipmaps = false;
+  sTex.needsUpdate = true;
+
+  var screenMat = new THREE.MeshBasicMaterial({
+    map: sTex, side: THREE.DoubleSide, transparent: false, fog: false
+  });
+  var screenGeo = new THREE.PlaneGeometry(FIELD_W, SCREEN_H);
+  var screenMesh = new THREE.Mesh(screenGeo, screenMat);
+  screenMesh.rotation.y = -Math.PI / 2;      // 法线指向 -X（朝波源一侧）
+  screenMesh.position.set(0, SCREEN_Y, 0);
+  scene.add(screenMesh);
+
+  // 屏边框（细发光轮廓）
+  (function screenFrame() {
+    var w = FIELD_W / 2, h = SCREEN_H / 2, d = 0.004;
+    var pts = [
+      new THREE.Vector3(-w, -h, 0), new THREE.Vector3(w, -h, 0),
+      new THREE.Vector3(w, h, 0), new THREE.Vector3(-w, h, 0),
+      new THREE.Vector3(-w, -h, 0)
+    ];
+    var g = new THREE.BufferGeometry().setFromPoints(pts);
+    var l = new THREE.Line(g, new THREE.LineBasicMaterial({
+      color: 0x2a7fbe, transparent: true, opacity: 0.55, depthWrite: false
+    }));
+    l.position.z = d;
+    screenMesh.add(l);
+    var l2 = l.clone(); l2.position.z = -d; screenMesh.add(l2);
+  })();
+
+  function placeScreen() {
+    screenMesh.position.x = (E.screenX - CXG) * CELL;
+  }
+
+  /* --------------------------------------------------------------- 波源线 */
+  var srcY = new Float32Array(NZ * 3);
+  var srcC = new Float32Array(NZ * 3);
+  (function () {
+    for (var z = 0; z < NZ; z++) {
+      srcY[z * 3]     = WX[E.srcX];
+      srcY[z * 3 + 1] = 0;
+      srcY[z * 3 + 2] = WZ[z];
+      srcC[z * 3]     = 1.0;
+      srcC[z * 3 + 1] = 0.85;
+      srcC[z * 3 + 2] = 0.30;
+    }
+  })();
+  var srcGeo = new THREE.BufferGeometry();
+  var srcPosAttr = new THREE.BufferAttribute(srcY, 3);
+  srcPosAttr.setUsage(THREE.DynamicDrawUsage);
+  srcGeo.setAttribute('position', srcPosAttr);
+  srcGeo.setAttribute('color', new THREE.BufferAttribute(srcC, 3));
+  srcGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 40);
+  var srcMat = new THREE.PointsMaterial({
+    size: 0.45, map: waveMat.map, vertexColors: true, transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, opacity: 0.95
+  });
+  var srcPoints = new THREE.Points(srcGeo, srcMat);
+  srcPoints.frustumCulled = false;
+  scene.add(srcPoints);
+
+  /* ------------------------------------------------------- 每帧：波场数据 */
+  // 注意：engine.step() 会轮换 e.u 的引用（三缓冲），所以每帧必须重新取 E.u
+  function updateField() {
+    var u = E.u, hs = HS;
+    var p = 0, z, x, base, v, av, t, g, g2;
+    for (z = 0; z < NZ; z++) {
+      base = z * NX;
+      for (x = 0; x < NX; x++, p += 3) {
+        v = u[base + x];
+        posArr[p + 1] = v * hs;                 // 只写 Y（X/Z 已预填）
+        av = v < 0 ? -v : v;
+        t = av * 1.0; if (t > 1) t = 1;
+        g = Math.pow(t, 1.35);                  // 中等振幅也保持亮度，避免暗糊
+        if (v > 0) {                            // 波峰 → 纯暖金
+          colArr[p]     = g;
+          colArr[p + 1] = 0.55 * g;
+          colArr[p + 2] = 0.08 * g;
+        } else {                                // 波谷 → 纯青蓝
+          colArr[p]     = 0.08 * g;
+          colArr[p + 1] = 0.52 * g;
+          colArr[p + 2] = g;
+        }
+      }
+    }
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+  }
+
+  // 波源：一条随源相位上下起伏的发光粒子线
+  function updateSource() {
+    var u = E.u, sx = E.srcX, hs = HS;
+    for (var z = 0; z < NZ; z++) {
+      srcY[z * 3 + 1] = u[z * NX + sx] * hs * 1.15;
+    }
+    srcPosAttr.needsUpdate = true;
+  }
+
+  /* --------------------------------------------------------- 每帧：屏条纹 */
+  function updateScreenTexture() {
+    var it = E.intensity, mx = 0, i;
+    for (i = 0; i < NZ; i++) if (it[i] > mx) mx = it[i];
+    var inv = mx > 1e-6 ? 1 / mx : 0;
+    var d = sImg.data;
+    var r, g, b, t, k, px, zi, y, o;
+    for (px = 0; px < SCW; px++) {
+      zi = (px * NZ / SCW) | 0;
+      if (zi >= NZ) zi = NZ - 1;
+      t = it[zi] * inv;
+      t = Math.pow(t, 0.55);
+      if (t < 0.35) {                       // 暗 → 深蓝
+        k = t / 0.35;
+        r = 3 + 12 * k;  g = 6 + 74 * k * k;  b = 16 + 176 * k;
+      } else if (t < 0.72) {                // 中 → 青
+        k = (t - 0.35) / 0.37;
+        r = 15 + 66 * k; g = 80 + 150 * k;  b = 192 + 42 * k;
+      } else {                              // 亮 → 近白
+        k = (t - 0.72) / 0.28;
+        r = 81 + 174 * k; g = 230 + 25 * k;  b = 234 + 21 * k;
+      }
+      for (y = 0; y < SCH; y++) {
+        o = ((y * SCW) + px) * 4;
+        d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+      }
+    }
+    sctx.putImageData(sImg, 0, 0);
+    sTex.needsUpdate = true;
+  }
+
+  /* ------------------------------------------------------------ 相机 orbit */
+  var HOME = { theta: 2.72, phi: 0.95, radius: 48 };
+  var userZoomed = false;
+  var view = { theta: HOME.theta, phi: HOME.phi, radius: HOME.radius };
+  var spin = { t: 0, p: 0 };       // 相机旋转惯性速度
+  var orbitDragging = false;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function applyCamera() {
+    var sp = Math.sin(view.phi), cp = Math.cos(view.phi);
+    camera.position.set(
+      TARGET.x + view.radius * sp * Math.cos(view.theta),
+      TARGET.y + view.radius * cp,
+      TARGET.z + view.radius * sp * Math.sin(view.theta)
+    );
+    camera.lookAt(TARGET);
+  }
+
+  (function bindOrbit() {
+    var drag = null, pinch = null;
+    function td(a, b) {
+      var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    canvas.addEventListener('touchstart', function (ev) {
+      orbitDragging = true;
+      spin.t = 0; spin.p = 0;
+      if (ev.touches.length === 1) {
+        var ty = ev.touches[0].clientY;
+        // 翻转分界线 = 原点 TARGET 的屏幕投影 Y（随画面偏移自动对齐，不写死 h/2）
+        var pv = TARGET.clone().project(camera);
+        var centerY = (1 - pv.y) * 0.5 * window.innerHeight;
+        drag = { x: ev.touches[0].clientX, y: ty, flip: (ty < centerY) ? -1 : 1, centerY: centerY };
+        pinch = null;
+      } else if (ev.touches.length >= 2) {
+        drag = null;
+        pinch = { d: td(ev.touches[0], ev.touches[1]) || 1, r: view.radius };
+      }
+      ev.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', function (ev) {
+      if (ev.touches.length === 1 && drag) {
+        var t0 = ev.touches[0];
+        var dx = t0.clientX - drag.x, dy = t0.clientY - drag.y;
+        drag.x = t0.clientX; drag.y = t0.clientY;
+        var f = drag.flip || 1;
+        view.theta += f * dx * 0.0062;
+        view.phi = clamp(view.phi - f * dy * 0.0052, 0.30, 1.30);
+        spin.t = f * dx * 0.0062;
+        spin.p = -f * dy * 0.0052;
+        applyCamera();
+      } else if (ev.touches.length >= 2 && pinch) {
+        var dd = td(ev.touches[0], ev.touches[1]);
+        if (dd > 2) {
+          view.radius = clamp(pinch.r * pinch.d / dd, 10, 95);
+          userZoomed = true;
+          applyCamera();
+        }
+      }
+      ev.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function (ev) {
+      if (ev.touches.length === 0) { drag = null; pinch = null; orbitDragging = false; }
+      else if (ev.touches.length === 1) {
+        pinch = null;
+        drag = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+      }
+    }, { passive: false });
+
+    // 桌面端：鼠标拖拽 / 滚轮
+    var mdown = false, mx0 = 0, my0 = 0;
+    canvas.addEventListener('mousedown', function (e) {
+      mdown = true; mx0 = e.clientX; my0 = e.clientY;
+      orbitDragging = true; spin.t = 0; spin.p = 0;
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!mdown) return;
+      var dth = (e.clientX - mx0) * 0.006, dph = -(e.clientY - my0) * 0.005;
+      view.theta += dth;
+      view.phi = clamp(view.phi + dph, 0.30, 1.30);
+      spin.t = dth; spin.p = dph;
+      mx0 = e.clientX; my0 = e.clientY;
+      applyCamera();
+    });
+    window.addEventListener('mouseup', function () { mdown = false; orbitDragging = false; });
+    canvas.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      view.radius = clamp(view.radius * (1 + e.deltaY * 0.0012), 10, 95);
+      userZoomed = true;
+      applyCamera();
+    }, { passive: false });
+  })();
+
+  /* ---------------------------------------------------------------- UI ---- */
+  var P = E.params;
+  var speed = 1;
+  var paused = false;
+  var needField = true, needScreen = true;
+
+  var SCENES = [
+    { k: 'single', n: '单缝' },
+    { k: 'double', n: '双缝' },
+    { k: 'multi',  n: '多缝' },
+    { k: 'edge',   n: '直边' },
+    { k: 'obstacle', n: '障碍物' }
+  ];
+
+  var DEFS = [
+    { k: 'lambda', nm: '波长 λ', min: 6, max: 30, step: 1, scenes: null },
+    { k: 'a',      nm: '缝宽 a', min: 4, max: 40, step: 1, scenes: ['single', 'double', 'multi'] },
+    { k: 'd',      nm: '缝距 d', min: 12, max: 90, step: 1, scenes: ['double', 'multi'] },
+    { k: 'N',      nm: '缝数 N', min: 2, max: 8, step: 1, scenes: ['multi'] },
+    { k: 'edge',   nm: '直边遮挡', min: 0.1, max: 0.9, step: 0.05, scenes: ['edge'] },
+    { k: 'H',      nm: '障碍物高', min: 10, max: 130, step: 1, scenes: ['obstacle'] },
+    { k: 'screenDist', nm: '屏距 L', min: 60, max: 105, step: 1, scenes: null },
+    { k: 'amplitude', nm: '振幅 A', min: 0.3, max: 2, step: 0.1, scenes: null },
+    { k: 'speed',  nm: '播放速度', min: 1, max: 40, step: 1, scenes: null }
+  ];
+
+  var rowsEl = document.getElementById('rows');
+  var chipsEl = document.getElementById('chips');
+  var rowRefs = {};
+
+  function buildUI() {
+    /* chips */
+    SCENES.forEach(function (s) {
+      var b = document.createElement('div');
+      b.className = 'chip' + (s.k === E.scene ? ' on' : '');
+      b.textContent = s.n;
+      b.dataset.k = s.k;
+      b.addEventListener('click', function () {
+        if (E.scene === s.k) return;
+        E.setScene(s.k);
+        rebuildScene();
+      });
+      chipsEl.appendChild(b);
+    });
+
+    /* sliders */
+    DEFS.forEach(function (def) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      var lbl = document.createElement('div'); lbl.className = 'lbl';
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = def.nm;
+      var vl = document.createElement('span'); vl.className = 'vl';
+      lbl.appendChild(nm); lbl.appendChild(vl);
+      var inp = document.createElement('input');
+      inp.type = 'range';
+      inp.min = def.min; inp.max = def.max; inp.step = def.step;
+      inp.value = (def.k === 'speed') ? speed : P[def.k];
+      row.appendChild(lbl); row.appendChild(inp);
+      rowsEl.appendChild(row);
+      rowRefs[def.k] = { row: row, inp: inp, vl: vl, def: def };
+      inp.addEventListener('input', function () {
+        var v = Number(inp.value);
+        if (def.k === 'speed') { speed = v; refreshLabels(); return; }
+        E.setParam(def.k, v);
+        rebuildScene();
+      });
+    });
+
+    document.getElementById('play').addEventListener('click', function () {
+      paused = !paused;
+      this.textContent = paused ? '播放' : '暂停';
+      this.classList.toggle('primary', !paused);
+      if (!paused) { lastT = performance.now(); acc = 0; }
+    });
+    document.getElementById('resetview').addEventListener('click', function () {
+      view.theta = HOME.theta; view.phi = HOME.phi; view.radius = HOME.radius;
+      userZoomed = false;
+      applyCamera();
+    });
+    refreshLabels();
+  }
+
+  // 场景/参数变化后：重建挡板几何 + 屏位置 + 刷新 UI 显隐
+  function rebuildScene() {
+    buildBarrier();
+    placeScreen();
+    needField = true; needScreen = true;
+    refreshLabels();
+    var chips = chipsEl.children;
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('on', chips[i].dataset.k === E.scene);
+    }
+  }
+
+  function refreshLabels() {
+    for (var k in rowRefs) {
+      var r = rowRefs[k], def = r.def;
+      var v = (k === 'speed') ? speed : P[k];
+      var main = '', sub = '';
+      switch (k) {
+        case 'lambda':
+          main = v + ' 格点';
+          sub  = 'f = ' + (1 / v).toFixed(3) + ' c/格';
+          break;
+        case 'a':
+          main = v + ' 格点';
+          sub  = (v / P.lambda).toFixed(2) + ' λ';
+          break;
+        case 'd':
+          main = v + ' 格点';
+          sub  = (v / P.lambda).toFixed(2) + ' λ';
+          break;
+        case 'N':
+          main = v + ' 缝';
+          sub  = '间距 ' + (P.d / P.lambda).toFixed(1) + ' λ';
+          break;
+        case 'edge':
+          main = Number(v).toFixed(2);
+          sub  = '遮挡 ' + Math.round(v * 100) + '% · ' + Math.round(v * NZ) + ' 格';
+          break;
+        case 'H':
+          main = v + ' 格点';
+          sub  = (v / P.lambda).toFixed(2) + ' λ';
+          break;
+        case 'screenDist':
+          main = v + ' 格点';
+          sub  = (v / P.lambda).toFixed(2) + ' λ';
+          break;
+        case 'amplitude':
+          main = Number(v).toFixed(1);
+          sub  = Math.round(v * 100) + '%';
+          break;
+        case 'speed':
+          main = v + ' 步/帧';
+          sub  = '≈' + (v * 60) + ' 步/秒';
+          break;
+      }
+      r.vl.innerHTML = main + (sub ? '<em>' + sub + '</em>' : '');
+      if (k !== 'speed' && Number(r.inp.value) !== Number(v)) r.inp.value = v;
+      var show = !def.scenes || def.scenes.indexOf(E.scene) >= 0;
+      r.row.classList.toggle('hide', !show);
+    }
+  }
+
+  /* ------------------------------------------------------------- 主循环 --- */
+  var lastT = performance.now();
+  var lastRender = 0;
+  var acc = 0;
+  var fpsEl = document.getElementById('fps');
+  var fpsN = 0, fpsT0 = performance.now();
+
+  function frame(fromTimer) {
+    var now = performance.now();
+    // rAF 正常工作时，定时器只是兜底，直接跳过，避免重复渲染/推进
+    if (fromTimer && (now - lastRender) < 55) return;
+
+    var dt = now - lastT;
+    lastT = now;
+    if (dt > 250) dt = 250;
+
+    if (!paused && dt > 1) {
+      acc += dt;
+      var ticks = Math.floor(acc / 16.7);
+      if (ticks > 3) ticks = 3;
+      if (ticks > 0) {
+        acc -= ticks * 16.7;
+        if (acc < 0) acc = 0;
+        for (var i = 0; i < ticks; i++) {
+          E.step(speed);
+        }
+        needField = true; needScreen = true;
+      }
+    } else if (paused) {
+      acc = 0;
+    }
+
+    if (needField) { updateField(); updateSource(); needField = false; }
+    if (needScreen) { updateScreenTexture(); needScreen = false; }
+
+    // 相机惯性：松手后继续平滑旋转并阻尼停下
+    if (!orbitDragging && (Math.abs(spin.t) > 0.0004 || Math.abs(spin.p) > 0.0004)) {
+      view.theta += spin.t;
+      view.phi = clamp(view.phi + spin.p, 0.10, 1.44);
+      spin.t *= 0.90;
+      spin.p *= 0.90;
+      applyCamera();
+    }
+
+    renderer.render(scene, camera);
+
+    lastRender = now;
+    fpsN++;
+    if (now - fpsT0 > 600) {
+      fpsEl.textContent = Math.round(fpsN * 1000 / (now - fpsT0)) + ' fps';
+      fpsN = 0; fpsT0 = now;
+    }
+  }
+
+  /* ------------------------------------------------------------- 启动 ----- */
+  resize();
+  applyCamera();
+  buildUI();
+  buildBarrier();
+  placeScreen();
+  updateField();
+  updateSource();
+  updateScreenTexture();
+
+  function loop() { frame(false); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  setInterval(function () { frame(true); }, 33);   // iOS rAF 被节流时的兜底
+
+  window.__wave = { E: E, view: view, applyCamera: applyCamera };  // 便于调试
+
+})();
+</script>
+</body>
+</html>
