@@ -47,6 +47,10 @@
   h2::after{content:"";flex:1;height:1px;background:var(--line)}
 
   .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .grid.one{grid-template-columns:1fr;gap:0;margin-bottom:8px}
+  .card.feature{padding:28px 26px;background:linear-gradient(120deg,rgba(126,224,201,.07),rgba(155,140,255,.07)),var(--card)}
+  .card.feature h3{font-size:22px}
+  .card.feature p{font-size:15.5px}
   .card{
     position:relative;display:flex;flex-direction:column;gap:10px;
     padding:22px;border:1px solid var(--line);border-radius:14px;
@@ -98,15 +102,20 @@
     </div>
   </header>
 
-  <h2 id="works">作品</h2>
-  <div class="grid">
+  <h2 id="works">大型项目</h2>
+  <div class="grid one">
 
-    <a class="card" href="https://logic922.github.io/MIDI8BIT/">
+    <a class="card feature" href="https://logic922.github.io/MIDI8BIT/">
       <h3>MIDI8BIT <span class="star">主打</span></h3>
-      <p>单文件 8-bit MIDI 播放器。导入 MIDI，实时渲染成 chiptune，带播放列表、预热缓存与四档位深导出。</p>
-      <div class="tags"><span class="tag">Web Audio</span><span class="tag">115 KB</span><span class="tag">单文件</span></div>
+      <p>单文件 8-bit MIDI 播放器。导入 MIDI，实时渲染成芯片音色，带示波器、音符卷帘、播放列表、后台预渲染与四档位深导出。有独立站点和仓库，构建产物 114 KB。</p>
+      <div class="tags"><span class="tag">Web Audio</span><span class="tag">PWA</span><span class="tag">114 KB</span><span class="tag">单文件</span></div>
       <span class="go">打开独立站点 →</span>
     </a>
+
+  </div>
+
+  <h2>题目模拟</h2>
+  <div class="grid">
 
     <a class="card" href="projects/教学模拟/波沙盒/index.html">
       <h3>波的干涉 / 衍射沙盒</h3>
