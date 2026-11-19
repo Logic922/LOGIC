@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>摆的沙盒 · 动铰摆 / 单摆</title>
+<style>
+  :root{
+    --bg:#080b10; --line:#232e3d; --txt:#e7eef6; --dim:#8296ad;
+    --c0:#4ec9f5; --c1:#ff9f43; --c2:#a78bfa;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;}
+  #app{max-width:1080px;margin:0 auto;padding:12px 12px 26px;}
+  h1{font-size:15px;font-weight:650;margin:6px 2px 4px;letter-spacing:.3px}
+  h1 span{color:var(--dim);font-weight:400;font-size:12px;margin-left:8px}
+  .tip{font-size:12px;color:var(--dim);margin:0 2px 10px;line-height:1.6}
+  .tip b{color:#ffcf8a;font-weight:600}
+
+  .stage{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:#070a0f;box-shadow:0 10px 34px rgba(0,0,0,.5);touch-action:none}
+  canvas{display:block;width:100%;height:auto}
+  #flash{position:absolute;left:50%;bottom:10px;transform:translate(-50%,8px);
+    padding:6px 12px;border-radius:9px;font-size:12px;
+    background:rgba(255,159,67,.14);border:1px solid rgba(255,159,67,.45);
+    color:#ffc98a;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;
+    text-align:center;max-width:92%}
+  #flash.on{opacity:1;transform:translate(-50%,0)}
+
+  .readout{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:10px}
+  .item{flex:1 1 auto;min-width:100px;background:#0f1621;border:1px solid #1e2836;
+    border-radius:9px;padding:7px 10px;font-size:11px;color:var(--dim);line-height:1.5}
+  .item b{display:block;font-size:13px;font-weight:600;color:#dbe7f4;
+    font-variant-numeric:tabular-nums;letter-spacing:.1px}
+  .item.k1 b{color:var(--c1)} .item.k2 b{color:var(--c2)} .item.k0 b{color:var(--c0)}
+
+  .panel{margin-top:12px;background:#0d141d;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px 14px}
+  .row{display:flex;align-items:center;gap:10px;padding:7px 0;flex-wrap:nowrap}
+  .row>label{flex:0 0 92px;font-size:12.5px;color:#b9c8d8}
+  .row>label i{font-style:normal;color:var(--dim);font-size:11px;display:block}
+  .row input[type=range]{flex:1 1 auto;min-width:60px}
+  .row .val{flex:0 0 72px;text-align:right;font-size:12.5px;color:#ffcf8a;
+    font-variant-numeric:tabular-nums}
+  .row .val.dim{color:var(--dim)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+  @media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+
+  input[type=range]{-webkit-appearance:none;height:3px;border-radius:3px;
+    background:#33445a;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;
+    border-radius:50%;background:var(--c1);border:none;box-shadow:0 0 8px rgba(255,159,67,.5)}
+
+  .ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+  button{appearance:none;border:1px solid #2a3646;background:#161f2b;color:var(--txt);
+    font-size:13px;padding:8px 14px;border-radius:9px;font-family:inherit;cursor:pointer}
+  button:active{background:#1e2a3a}
+  button.on{border-color:#3f7d9e;background:#12303f;color:#9fe0ff}
+  button.mini{font-size:12px;padding:7px 11px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#b9c8d8;
+    background:#161f2b;border:1px solid #2a3646;border-radius:9px;padding:8px 12px;cursor:pointer}
+  .chk input{accent-color:#4ec9f5;width:16px;height:16px}
+  .note{margin:14px 2px 0;font-size:12.5px;line-height:1.9;color:var(--dim)}
+  .note b{color:#c3d3e4;font-weight:600}
+  .note .k{color:#ffcf8a}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>摆的沙盒<span>动铰摆 / 单摆 · 质量、杆长、起点、初速度都能改</span></h1>
+  <p class="tip">直接<b>拖动小球</b>换起始位置，松手就开始摆。拖到高处再给一点初速度，它才可能绕整圈。</p>
+
+  <div class="stage"><canvas id="cv"></canvas><div id="flash"></div></div>
+
+  <div class="readout">
+    <div class="item k1"><span>状态</span><b id="rState">—</b></div>
+    <div class="item"><span>摆角 θ</span><b id="rAng">—</b></div>
+    <div class="item k0"><span>小球速度</span><b id="rV1">—</b></div>
+    <div class="item k2"><span>铰链速度</span><b id="rV2">—</b></div>
+    <div class="item"><span>总机械能</span><b id="rE">—</b></div>
+    <div class="item"><span>实测周期</span><b id="rT">—</b></div>
+  </div>
+
+  <div class="panel">
+    <div class="grid2">
+      <div class="row">
+        <label>球质量 m₁ <i>越重球越大</i></label>
+        <input id="sm1" type="range" min="5" max="100" value="20">
+        <div class="val" id="vm1">0.20 kg</div>
+      </div>
+      <div class="row">
+        <label>铰链 m₂ <i>越轻越“跑”</i></label>
+        <input id="sm2" type="range" min="5" max="200" value="20">
+        <div class="val" id="vm2">0.20 kg</div>
+      </div>
+      <div class="row">
+        <label>杆长 l</label>
+        <input id="sl" type="range" min="10" max="60" value="30">
+        <div class="val" id="vl">0.30 m</div>
+      </div>
+      <div class="row">
+        <label>起始角 θ₀ <i>0°竖直向下</i></label>
+        <input id="sa" type="range" min="0" max="180" value="120">
+        <div class="val" id="va">120°</div>
+      </div>
+      <div class="row">
+        <label>初速度 v₀ <i>沿切向</i></label>
+        <input id="sv" type="range" min="-500" max="500" value="0">
+        <div class="val" id="vv">0.0 m/s</div>
+      </div>
+      <div class="row">
+        <label>播放速度</label>
+        <input id="ss" type="range" min="10" max="150" value="60">
+        <div class="val" id="vs">0.60×</div>
+      </div>
+    </div>
+
+    <div class="ctrls">
+      <button id="btnPlay" class="on">暂停</button>
+      <button id="btnReset">重新开始</button>
+      <label class="chk"><input type="checkbox" id="ckFixed">铰链固定</label>
+      <button id="btnTrail" class="on">轨迹</button>
+      <button id="btnVec">速度箭头</button>
+    </div>
+    <div class="ctrls">
+      <button class="mini" data-preset="plain">课本单摆</button>
+      <button class="mini" data-preset="light">轻铰链</button>
+      <button class="mini" data-preset="heavy">重铰链</button>
+      <button class="mini" data-preset="over">绕整圈</button>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>怎么判断它会不会翻上去？</b> 比两个能量：当前总机械能 <span class="k">E</span>，和“刚好够到最高点”所需的那份能量
+    <span class="k">E顶 = p²/(2M) + m₁gl</span>（p 是水平动量，M = m₁+m₂）。
+    E &gt; E顶 才绕整圈；否则只能在下方往复，最大摆角由能量守恒定死。
+    <br>
+    <b>从静止释放（v₀ = 0，即 p = 0）时：</b>E = −m₁gl·cos θ₀，而 E顶 = m₁gl。
+    因为 cos θ₀ ≥ −1，所以 <span class="k">E 永远 &lt; E顶</span> ——
+    <b>静止放开，无论从多高放，都翻不过最高点</b>，只会在 ±θ₀ 之间原样来回（θ₀ = 180° 是唯一的临界，要“无限久”才停在最高点）。
+    想让它绕整圈，只有两条路：给初速度，或者像原题那样在最高点附近<b>水平撞它一下</b>（撞出来的水平动量 p 让 E顶 里多出一项 p²/2M，但更主要的是给了它动能）。
+  </div>
+</div>
+<script>
+/* 摆的沙盒：动铰摆 / 单摆   可调 m1、m2、l、起始角、初速度
+   物理：广义坐标 φ（自竖直向下量起）、铰链位置 x
+     T = ½(m1+m2)ẋ² + m1 l cosφ ẋ φ̇ + ½ m1 l² φ̇²
+     V = −m1 g l cosφ ,   p = (m1+m2)ẋ + m1 l cosφ φ̇ = 常量
+     φ̈ = [ −(M g/l) sinφ − m1 sinφ cosφ φ̇² ] / (M − m1 cos²φ),  M = m1+m2
+*/
+(function () {
+  'use strict';
+
+  var cv = document.getElementById('cv');
+  var W = 1000, H = 780;
+  var dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.aspectRatio = W + '/' + H;
+  var ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  var G = 10;
+  var P = { m1: 0.20, m2: 0.20, l: 0.30, phi0: 120 * Math.PI / 180, v0: 0, fixed: false };
+  var sim = null;
+  var S = 800, S0 = 800, cam = { x: 0, y: 0 };
+  var U = 1, running = true, speed = 0.6, showTrail = true, showVec = false;
+
+  /* ---------------- 初始化 ---------------- */
+  function eff2() { return P.fixed ? 1e7 : P.m2; }
+
+  function initSim() {
+    var m2e = eff2(), M = P.m1 + m2e;
+    var om0 = P.v0 / P.l;
+    sim = {
+      m1: P.m1, m2: m2e, M: M, l: P.l,
+      phi: P.phi0, om: om0, x: 0, ang: P.phi0, t: 0,
+      p: P.m1 * P.l * Math.cos(P.phi0) * om0,
+      trail: [], trailAcc: 0, Tp: null, tPlus: null, tMinus: null,
+      rot: false, turn: null, E: 0, Eneed: 0, E0: 0
+    };
+    classify();
+    cam.x = sim.m1 * sim.l * Math.sin(sim.phi) / sim.M;
+  }
+
+  function classify() {
+    var s = sim;
+    s.E0 = 0.5 * s.m1 * s.l * s.l * s.om * s.om - s.m1 * G * s.l * Math.cos(s.phi);
+    s.Eneed = s.p * s.p / (2 * s.M) + s.m1 * G * s.l;
+    s.rot = s.E0 > s.Eneed + 1e-9;
+    if (!s.rot) {
+      var c = (s.p * s.p / (2 * s.M) - s.E0) / (s.m1 * G * s.l);
+      c = Math.max(-1, Math.min(1, c));
+      s.turn = Math.acos(c);
+    } else s.turn = null;
+  }
+
+  function energy(s) {
+    var xd = (s.p - s.m1 * s.l * Math.cos(s.phi) * s.om) / s.M;
+    var T = 0.5 * s.M * xd * xd + s.m1 * s.l * Math.cos(s.phi) * xd * s.om + 0.5 * s.m1 * s.l * s.l * s.om * s.om;
+    return T - s.m1 * G * s.l * Math.cos(s.phi);
+  }
+
+  /* ---------------- 积分 ---------------- */
+  function deriv(phi, om) {
+    var s = sim, c = Math.cos(phi), sn = Math.sin(phi);
+    var den = s.M - s.m1 * c * c;
+    var acc = (-(s.M * G / s.l) * sn - s.m1 * sn * c * om * om) / den;
+    return [om, acc, (s.p - s.m1 * s.l * c * om) / s.M];
+  }
+
+  function wrapA(a) { return ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; }
+
+  function rk4(h) {
+    var s = sim;
+    var st = [s.phi, s.om, s.x];
+    var k1 = deriv(st[0], st[1]);
+    var a = [st[0] + h / 2 * k1[0], st[1] + h / 2 * k1[1], st[2] + h / 2 * k1[2]];
+    var k2 = deriv(a[0], a[1]);
+    var b = [st[0] + h / 2 * k2[0], st[1] + h / 2 * k2[1], st[2] + h / 2 * k2[2]];
+    var k3 = deriv(b[0], b[1]);
+    var c = [st[0] + h * k3[0], st[1] + h * k3[1], st[2] + h * k3[2]];
+    var k4 = deriv(c[0], c[1]);
+
+    var prevPhi = s.phi;
+    s.phi += h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+    s.om += h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+    s.x += h / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+    s.t += h;
+    s.ang = s.phi;
+
+    // 周期：θ 过零（同方向相邻两次的时间差 = 一个完整周期 / 转一圈）
+    var paw = wrapA(prevPhi), aw = wrapA(s.phi);
+    if (Math.abs(paw) < 1.2 && Math.abs(aw) < 1.2) {
+      if (paw < 0 && aw >= 0) { if (s.tPlus !== null) s.Tp = s.t - s.tPlus; s.tPlus = s.t; }
+      else if (paw > 0 && aw <= 0) { if (s.tMinus !== null) s.Tp = s.t - s.tMinus; s.tMinus = s.t; }
+    }
+
+    s.trailAcc += h;
+    if (s.trailAcc > 0.008) {
+      s.trailAcc = 0;
+      s.trail.push({ x: s.x + s.l * Math.sin(s.phi), y: -s.l * Math.cos(s.phi), t: s.t });
+      while (s.trail.length && s.t - s.trail[0].t > 3.0) s.trail.shift();
+    }
+  }
+
+  function advance(dt) {
+    if (dt <= 0) return;
+    var left = dt, h = 8e-4, guard = 0;
+    while (left > 1e-9 && guard++ < 9000) {
+      var st = Math.min(h, left);
+      rk4(st);
+      left -= st;
+    }
+  }
+
+  /* ---------------- 变换 ---------------- */
+  function wx(x) { return (x - cam.x) * S + W / 2; }
+  function wy(y) { return H / 2 - (y - cam.y) * S; }
+  function fs(px) { return (px * U).toFixed(1) + 'px'; }
+  var FF = '-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif';
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function ballR() { return 0.10 * sim.l * Math.cbrt(sim.m1 / 0.2); }
+
+  /* ---------------- 绘制 ---------------- */
+  function drawBG() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0a1017'); g.addColorStop(0.55, '#070b11'); g.addColorStop(1, '#05080c');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(96,132,180,.06)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    var stp = 0.1, x0 = Math.floor((cam.x - W / 2 / S) / stp) * stp;
+    for (var x = x0; wx(x) < W + 40; x += stp) {
+      var px = Math.round(wx(x)) + .5;
+      ctx.moveTo(px, 0); ctx.lineTo(px, H);
+    }
+    for (var y = -2; wy(y) < H + 40; y += stp) {
+      var py = Math.round(wy(y)) + .5;
+      ctx.moveTo(0, py); ctx.lineTo(W, py);
+    }
+    ctx.stroke();
+  }
+
+  function drawRail() {
+    var yTop = wy(0.0), yBot = wy(-0.026);
+    var g = ctx.createLinearGradient(0, yTop, 0, yBot);
+    g.addColorStop(0, '#3a4c66'); g.addColorStop(0.3, '#1f2b3a'); g.addColorStop(1, '#121922');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, yTop, W, yBot - yTop);
+    ctx.fillStyle = 'rgba(134,170,215,.8)';
+    ctx.fillRect(0, yTop - 1.5, W, 2);
+
+    ctx.strokeStyle = 'rgba(120,155,200,.25)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    var stp = 0.05, x0 = Math.floor((cam.x - W / 2 / S) / stp) * stp;
+    for (var x = x0; wx(x) < W + 20; x += stp) {
+      var px = Math.round(wx(x)) + .5;
+      ctx.moveTo(px, yTop + 1); ctx.lineTo(px, yTop + 6 * U);
+    }
+    ctx.stroke();
+  }
+
+  function drawTurning() {
+    if (sim.rot || sim.turn === null) return;
+    var a = sim.turn;
+    var px = wx(sim.x), py = wy(0), rr = sim.l * S * 1.06;
+    ctx.save();
+    ctx.setLineDash([5 * U, 6 * U]);
+    ctx.strokeStyle = 'rgba(120,190,255,.28)';
+    ctx.lineWidth = 1.2;
+    [-a, a].forEach(function (ang) {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.sin(ang) * rr, py + Math.cos(ang) * rr);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawAngleArc() {
+    var px = wx(sim.x), py = wy(0);
+    var r = sim.l * S * 0.34;
+    var phi = sim.phi;
+    ctx.beginPath();
+    ctx.arc(px, py, r, Math.PI / 2, Math.PI / 2 - phi, phi > 0);
+    ctx.strokeStyle = 'rgba(167,139,250,.45)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.setLineDash([3 * U, 5 * U]);
+    ctx.moveTo(px, py); ctx.lineTo(px, py + sim.l * S * 1.06);
+    ctx.strokeStyle = 'rgba(150,170,200,.22)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawTrail() {
+    if (!showTrail || sim.trail.length < 2) return;
+    var n = sim.trail.length;
+    for (var i = 1; i < n; i++) {
+      var a = i / n;
+      var p0 = sim.trail[i - 1], p1 = sim.trail[i];
+      ctx.strokeStyle = 'rgba(255,159,67,' + (0.38 * a * a).toFixed(3) + ')';
+      ctx.lineWidth = 1 + 2.2 * a;
+      ctx.beginPath();
+      ctx.moveTo(wx(p0.x), wy(p0.y));
+      ctx.lineTo(wx(p1.x), wy(p1.y));
+      ctx.stroke();
+    }
+  }
+
+  function drawRod() {
+    var px = wx(sim.x), py = wy(0);
+    var bx = wx(sim.x + sim.l * Math.sin(sim.phi));
+    var by = wy(-sim.l * Math.cos(sim.phi));
+
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(167,139,250,.16)'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.strokeStyle = '#b39bff'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+  }
+
+  function drawPivot() {
+    var px = wx(sim.x), py = wy(0);
+    ctx.fillStyle = '#38485f';
+    roundRect(px - 9 * U, py - 7 * U, 18 * U, 13 * U, 3 * U); ctx.fill();
+    ctx.strokeStyle = '#93abc9'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, py, 2.8 * U, 0, 7);
+    ctx.fillStyle = '#b39bff'; ctx.fill();
+
+    // 铰链信息固定在左上角，避免与杆/球标签重叠
+    ctx.font = fs(10.5) + ' ' + FF;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(196,186,255,.85)';
+    ctx.fillText(P.fixed ? '铰链固定（m₂ = ∞）' : '铰链 m₂ = ' + fmt(P.m2) + ' kg · 可沿导轨滑动',
+                 14 * U, 22 * U);
+  }
+
+  function drawBall() {
+    var bx = sim.x + sim.l * Math.sin(sim.phi), by = -sim.l * Math.cos(sim.phi);
+    var px = wx(bx), py = wy(by), pr = Math.max(6, ballR() * S);
+    var g = ctx.createRadialGradient(px - pr * .35, py - pr * .4, pr * .1, px, py, pr);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(.45, '#ff9f43'); g.addColorStop(1, '#ff9f43');
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, 7);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.font = 'italic ' + fs(12) + ' ' + FF;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff9f43';
+    ctx.fillText('m₁ ' + fmt(sim.m1) + ' kg', px, py - pr - 8 * U);
+  }
+
+  function arrow(x, y, vx, vy, col, k) {
+    if (Math.hypot(vx, vy) < 0.05) return;
+    var sx = wx(x), sy = wy(y), ex = wx(x + vx * k), ey = wy(y + vy * k);
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    var a = Math.atan2(ey - sy, ex - sx);
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - 8 * Math.cos(a - .4), ey - 8 * Math.sin(a - .4));
+    ctx.lineTo(ex - 8 * Math.cos(a + .4), ey - 8 * Math.sin(a + .4));
+    ctx.closePath(); ctx.fill();
+  }
+
+  function drawVecs() {
+    if (!showVec) return;
+    var xd = (sim.p - sim.m1 * sim.l * Math.cos(sim.phi) * sim.om) / sim.M;
+    var vx = xd + sim.l * Math.cos(sim.phi) * sim.om;
+    var vy = sim.l * Math.sin(sim.phi) * sim.om;
+    var k = 0.55 / Math.max(1, Math.abs(sim.om) * sim.l * 1.0);
+    arrow(sim.x + sim.l * Math.sin(sim.phi), -sim.l * Math.cos(sim.phi), vx, vy, 'rgba(255,159,67,.95)', 0.10);
+    if (!P.fixed) arrow(sim.x, 0.02, xd, 0, 'rgba(167,139,250,.95)', 0.10);
+  }
+
+  function draw() {
+    drawBG();
+    drawRail();
+    drawTurning();
+    drawAngleArc();
+    drawTrail();
+    drawRod();
+    drawPivot();
+    drawBall();
+    drawVecs();
+  }
+
+  /* ---------------- 读数 ---------------- */
+  function fmt(v) { return (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2)); }
+  var elState = document.getElementById('rState'), elAng = document.getElementById('rAng');
+  var elV1 = document.getElementById('rV1'), elV2 = document.getElementById('rV2');
+  var elE = document.getElementById('rE'), elT = document.getElementById('rT');
+  var lastRead = 0;
+
+  function updateReadout() {
+    var now = performance.now();
+    if (now - lastRead < 60) return;
+    lastRead = now;
+
+    var xd = (sim.p - sim.m1 * sim.l * Math.cos(sim.phi) * sim.om) / sim.M;
+    var vx = xd + sim.l * Math.cos(sim.phi) * sim.om;
+    var vy = sim.l * Math.sin(sim.phi) * sim.om;
+    var angShow = ((sim.phi + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+
+    if (sim.rot) elState.textContent = '绕整圈';
+    else elState.textContent = '往复摆动 · 最大 ' + (sim.turn * 180 / Math.PI).toFixed(0) + '°';
+
+    elAng.textContent = (angShow * 180 / Math.PI).toFixed(0) + '°';
+    elV1.textContent = Math.hypot(vx, vy).toFixed(2) + ' m/s';
+    elV2.textContent = P.fixed ? '0（固定）' : xd.toFixed(2) + ' m/s';
+    elE.textContent = energy(sim).toFixed(3) + ' J';
+    elT.textContent = sim.Tp === null ? '—' : sim.Tp.toFixed(2) + ' s';
+  }
+
+  /* ---------------- 主循环 ---------------- */
+  var lastTs = performance.now();
+  function tick() {
+    var now = performance.now();
+    var dt = (now - lastTs) / 1000; lastTs = now;
+    if (dt > 0.05) dt = 0.05;
+    U = Math.max(0.9, W / Math.max(240, cv.clientWidth || W));
+
+    if (running && !dragging) advance(dt * speed);
+
+    // 缩放：让杆长在屏幕上大致恒定
+    var starget = Math.min(0.44 * H / (1.15 * sim.l), (W * 0.40) / (1.30 * sim.l));
+    S += (starget - S) * (1 - Math.exp(-dt * 6));
+
+    // 镜头：跟着系统质心（p = 0 时质心不动 → 画面稳定）
+    var cmx = sim.x + sim.m1 * sim.l * Math.sin(sim.phi) / sim.M;
+    cam.x += (cmx - cam.x) * (1 - Math.exp(-dt * 2.5));
+    cam.y = 0;
+
+    draw();
+    updateReadout();
+  }
+  function raf() { tick(); requestAnimationFrame(raf); }
+  requestAnimationFrame(raf);
+  setInterval(function () { if (performance.now() - lastTs > 150) tick(); }, 60);
+
+  /* ---------------- 交互 ---------------- */
+  var dragging = false;
+  function setAngleFromPointer(e) {
+    var r = cv.getBoundingClientRect();
+    var lx = (e.clientX - r.left) / r.width * W;
+    var ly = (e.clientY - r.top) / r.height * H;
+    var wxp = (lx - W / 2) / S + cam.x;
+    var wyp = (H / 2 - ly) / S + cam.y;
+    var dx = wxp - sim.x, dy = wyp;
+    if (Math.hypot(dx, dy) < 0.22 * sim.l) return;
+    var phi = Math.atan2(dx, -dy);
+    P.phi0 = phi;
+    sim.phi = phi; sim.om = 0; sim.x = 0; sim.trail = []; sim.tPlus = null; sim.tMinus = null; sim.Tp = null;
+    sim.p = 0; sim.t = 0;
+    classify();
+    sa.value = Math.round(Math.abs(phi) * 180 / Math.PI);
+    va.textContent = Math.round(Math.abs(phi)) + '°';
+    draw();
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    dragging = true; running = false; syncPlay();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    setAngleFromPointer(e);
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', function (e) { if (dragging) { setAngleFromPointer(e); e.preventDefault(); } });
+  cv.addEventListener('pointerup', function () {
+    if (!dragging) return;
+    dragging = false;
+    initSim();
+    running = true; syncPlay();
+  });
+  cv.addEventListener('pointercancel', function () { dragging = false; initSim(); });
+
+  /* ---------------- 控件 ---------------- */
+  var sm1 = document.getElementById('sm1'), sm2 = document.getElementById('sm2');
+  var sl = document.getElementById('sl'), sa = document.getElementById('sa');
+  var sv = document.getElementById('sv'), ss = document.getElementById('ss');
+  var vm1 = document.getElementById('vm1'), vm2 = document.getElementById('vm2');
+  var vl = document.getElementById('vl'), va = document.getElementById('va');
+  var vv = document.getElementById('vv'), vs = document.getElementById('vs');
+  var btnPlay = document.getElementById('btnPlay');
+  var flashEl = document.getElementById('flash');
+
+  function syncPlay() {
+    btnPlay.textContent = running ? '暂停' : '播放';
+    btnPlay.classList.toggle('on', running);
+  }
+
+  function readControls(restart) {
+    P.m1 = +sm1.value / 100;
+    P.m2 = +sm2.value / 100;
+    P.l = +sl.value / 100;
+    P.phi0 = +sa.value * Math.PI / 180;
+    P.v0 = +sv.value / 100;
+    P.fixed = document.getElementById('ckFixed').checked;
+
+    vm1.textContent = fmt(P.m1) + ' kg';
+    vm2.textContent = P.fixed ? '—（固定）' : fmt(P.m2) + ' kg';
+    vm2.classList.toggle('dim', P.fixed);
+    sm2.disabled = P.fixed;
+    sm2.style.opacity = P.fixed ? 0.4 : 1;
+    vl.textContent = P.l.toFixed(2) + ' m';
+    va.textContent = Math.round(+sa.value) + '°';
+    vv.textContent = (+sv.value / 100).toFixed(1) + ' m/s';
+
+    if (restart) initSim();
+  }
+
+  [sm1, sm2, sl, sa, sv].forEach(function (el) { el.oninput = function () { readControls(true); }; });
+  document.getElementById('ckFixed').onchange = function () { readControls(true); };
+  ss.oninput = function () { speed = +ss.value / 100; vs.textContent = speed.toFixed(2) + '×'; };
+
+  btnPlay.onclick = function () { running = !running; syncPlay(); lastTs = performance.now(); };
+  document.getElementById('btnReset').onclick = function () { initSim(); running = true; syncPlay(); };
+  document.getElementById('btnTrail').onclick = function () {
+    showTrail = !showTrail; this.classList.toggle('on', showTrail);
+  };
+  document.getElementById('btnVec').onclick = function () {
+    showVec = !showVec; this.classList.toggle('on', showVec);
+  };
+
+  // 预设
+  var presets = {
+    plain:  { m1: 20, m2: 20, l: 30, a: 60,  v: 0,   fixed: true },
+    light:  { m1: 20, m2: 5,  l: 30, a: 100, v: 0,   fixed: false },
+    heavy:  { m1: 20, m2: 200, l: 30, a: 100, v: 0,  fixed: false },
+    over:   { m1: 20, m2: 20, l: 30, a: 60,  v: 420, fixed: false }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-preset]'), function (b) {
+    b.onclick = function () {
+      var p = presets[b.dataset.preset];
+      sm1.value = p.m1; sm2.value = p.m2; sl.value = p.l; sa.value = p.a; sv.value = p.v;
+      document.getElementById('ckFixed').checked = p.fixed;
+      readControls(true);
+      running = true; syncPlay();
+    };
+  });
+
+  /* 调试钩子 */
+  window.__sim = function () { return sim; };
+  window.__pause = function () { running = false; syncPlay(); };
+  window.__play = function () { running = true; syncPlay(); };
+  window.__advance = function (sec) { advance(sec); draw(); lastRead = 0; updateReadout(); };
+  window.__view = function () { return { S: S, cam: cam, U: U }; };
+
+  readControls(false);
+  initSim();
+  draw();
+})();
+
+</script>
+</body>
+</html>
