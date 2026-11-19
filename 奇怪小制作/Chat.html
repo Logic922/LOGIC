@@ -361,7 +361,7 @@
     <div class="hint">越低越暗沉，越高越亮。</div>
   </div>
 
-  <div class="sect">背景 · waifu.im</div>
+  <div class="sect">背景 · waifu.best</div>
   <div class="switch">
     <span>让它替我换背景</span>
     <label class="sw"><input id="bgOn" type="checkbox" checked><i></i></label>
@@ -675,7 +675,7 @@ function regenerate(i){
   generateLast(c);
 }
 
-/* ============ 背景：waifu.im ============ */
+/* ============ 背景：waifu.best ============ */
 const BG_DEFAULT = { on: true, rating: "safe", interval: 300, tags: "", veil: 100, dim: 60, peekFade: true };
 let bgCfg = Object.assign({}, BG_DEFAULT);
 try { bgCfg = Object.assign(bgCfg, JSON.parse(store.get(LS_BG) || "{}")); } catch(e){}
@@ -739,7 +739,7 @@ function bgApiUrl(size){
   p.set("OrderBy", "Random");
   p.set("Orientation", innerHeight >= innerWidth ? "Portrait" : "Landscape");
   p.set("ByteSize", "<=2500000");
-  return "https://api.waifu.im/images?" + p.toString();
+  return "https://api.waifu.best/images?" + p.toString();
 }
 
 function bgStatus(txt){ $("bgStatus").textContent = txt; }
