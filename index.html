@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#0a0c11">
 <title>LOGIC · 作品集</title>
 <meta name="description" content="单文件前端、物理解说动画、8-bit 播放器，和一个 AI 助手的配置仓库。">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LOGIC">
 <style>
   :root{
     --bg:#0a0c11; --ink:#e9ecf3; --dim:#8d95a8; --faint:#5d6579;
@@ -186,5 +192,12 @@
   </footer>
 
 </div>
+<script>
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
