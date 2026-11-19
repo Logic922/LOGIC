@@ -1,0 +1,84 @@
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070a11;
+  --card:#0e131c;
+  --card2:#141c28;
+  --line:#1c2432;
+  --txt:#dce5f2;
+  --dim:#7c8ca3;
+  --a:#5b9bd5;
+  --b:#f5a524;
+  --c:#2dd4bf;
+}
+html{background:var(--bg)}
+body{
+  background:radial-gradient(1100px 520px at 15% -10%, #12203a 0%, transparent 60%), var(--bg);
+  color:var(--txt);
+  font-family:"PingFang SC","Noto Sans CJK SC","Hiragino Sans GB",-apple-system,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  padding:12px 12px 26px;
+  min-height:100vh;
+}
+.wrap{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:11px}
+
+/* ---------- header ---------- */
+.hd{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;padding:2px 4px}
+.hd h1{font-size:17px;font-weight:650;letter-spacing:.2px}
+.hd .meta{font-size:11px;color:var(--dim);margin-top:5px;line-height:1.5}
+.clock{font-variant-numeric:tabular-nums;color:#8fd3ff;font-size:13px;white-space:nowrap;
+  background:#0c1520;border:1px solid #1b2a3d;border-radius:9px;padding:6px 10px}
+.clock span{font-size:19px;font-weight:600;letter-spacing:.5px}
+.clock em{font-style:normal;color:var(--dim);margin-left:2px;font-size:11px}
+
+/* ---------- cards ---------- */
+.card{background:linear-gradient(180deg,var(--card2),var(--card));
+  border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 8px 26px -18px #000, inset 0 1px 0 #ffffff08}
+
+.stage{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+@media(max-width:840px){.stage{grid-template-columns:1fr}}
+
+figure{position:relative;display:flex;flex-direction:column}
+figcaption{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  padding:9px 12px;font-size:12px;border-bottom:1px solid var(--line);background:#0b1017aa}
+figcaption b{font-weight:600;letter-spacing:.2px}
+figcaption span{color:var(--dim);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+canvas{display:block;width:100%}
+#cvA,#cvC{height:202px}
+@media(max-width:840px){#cvA{height:134px}#cvC{height:158px}}
+.hud{position:absolute;left:10px;top:38px;font-size:10.5px;color:#7f93ab;
+  font-variant-numeric:tabular-nums;line-height:1.55;pointer-events:none;text-shadow:0 1px 3px #000}
+
+/* ---------- overview ---------- */
+.overview{padding-bottom:6px}
+.ovhead{padding:8px 12px 2px;font-size:10.5px;color:var(--dim);letter-spacing:.4px}
+#cvO{height:62px}
+
+/* ---------- timeline bar ---------- */
+.bar{padding:8px 10px 10px;display:flex;flex-direction:column;gap:8px}
+#cvT{height:44px}
+.btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+button{
+  font-family:inherit;font-size:12px;color:var(--txt);cursor:pointer;
+  background:#151e2b;border:1px solid #243144;border-radius:9px;padding:7px 14px;
+  transition:.15s; -webkit-tap-highlight-color:transparent;
+}
+button:hover{background:#1b2534;border-color:#31435c}
+button:active{transform:translateY(1px)}
+button.primary{background:#1d4e7a;border-color:#2f7bb8;color:#dff2ff;font-weight:600}
+button.primary:hover{background:#23608f}
+.spd{display:flex;gap:4px;margin-left:auto;background:#0c131c;border:1px solid #1a2432;border-radius:10px;padding:3px}
+.spd button{padding:5px 9px;border:0;background:transparent;font-size:11px;color:var(--dim);border-radius:7px}
+.spd button.on{background:#21374f;color:#b9e2ff;font-weight:600}
+.spd button:hover{background:#1a2836;color:var(--txt)}
+
+/* ---------- readouts ---------- */
+.readouts{display:flex;flex-direction:column;gap:9px}
+.ro{font-size:12px;color:#93a6bd;background:#0d131c;border:1px solid var(--line);
+  border-left:3px solid #2f7bb8;border-radius:10px;padding:9px 12px;line-height:1.6}
+.ro b{color:#e8f1ff;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.cell{background:#0d131c;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.cell .k{font-size:10px;color:var(--dim);letter-spacing:.3px}
+.cell .v{font-size:15px;font-variant-numeric:tabular-nums;margin-top:3px;font-weight:600}
+.cell .v small{font-size:10px;color:var(--dim);font-weight:400;margin-left:2px}
