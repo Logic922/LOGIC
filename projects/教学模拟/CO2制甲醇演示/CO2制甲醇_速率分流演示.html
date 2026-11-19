@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>CO₂加氢制甲醇 · 分流机制演示</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{-webkit-text-size-adjust:100%;text-size-adjust:100%;margin:0;padding:0}
+body{
+  background:#05080e;color:#dfe9f5;
+  font-family:-apple-system,"PingFang SC","Noto Sans CJK SC","Helvetica Neue",sans-serif;
+  padding:14px 13px 34px;max-width:640px;margin:0 auto;
+  -webkit-font-smoothing:antialiased;
+}
+h1{font-size:17px;margin:0 0 4px;font-weight:600;letter-spacing:.02em}
+.sub{font-size:11.5px;color:#7d90a6;line-height:1.55;margin:0 0 12px}
+.canvasWrap{
+  position:relative;height:clamp(300px,46vh,430px);border-radius:14px;
+  background:radial-gradient(120% 100% at 50% -10%,#0e1a28,#060a11 72%);
+  border:1px solid rgba(90,130,180,.18);overflow:hidden;
+}
+canvas{display:block;width:100%;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 2px 0;font-size:11px;color:#8fa3b8}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto}
+table.cmp{width:100%;table-layout:fixed;border-collapse:collapse;margin:14px 0 0;font-size:12.5px}
+table.cmp th,table.cmp td{padding:7px 4px;text-align:center;border-bottom:1px solid rgba(90,130,180,.14);word-break:break-word}
+table.cmp th{font-weight:600;font-size:11.5px;color:#8fa3b8}
+table.cmp td:first-child{text-align:left;color:#93a7bc;font-size:11.5px}
+table.cmp b{font-weight:600;font-size:13px}
+table.cmp i{display:block;font-style:normal;font-size:10px;color:#5f7387;margin-top:2px}
+.cA{color:#38d9ff}.cB{color:#ffb03a}
+.ctrl{margin-top:16px;background:rgba(255,255,255,.035);border:1px solid rgba(90,130,180,.16);
+  border-radius:12px;padding:12px 13px}
+.ctrl .row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:#93a7bc}
+.ctrl b{color:#ffb03a;font-size:14px}
+input[type=range]{width:100%;margin:10px 0 4px;accent-color:#ffb03a;height:26px}
+.btns{display:flex;gap:9px;margin-top:8px}
+button{flex:1;background:rgba(56,217,255,.1);color:#9fe8ff;border:1px solid rgba(56,217,255,.3);
+  border-radius:9px;padding:9px 0;font-size:12.5px;font-family:inherit}
+button:active{background:rgba(56,217,255,.22)}
+.notes{margin-top:18px;font-size:12px;line-height:1.85;color:#93a7bc}
+.notes h2{font-size:13px;color:#dfe9f5;margin:0 0 7px;font-weight:600}
+.notes p{margin:0 0 9px}
+.notes .k{color:#ffb03a;font-weight:600}
+.notes .t{color:#38d9ff;font-weight:600}
+.notes .g{color:#4fd18b;font-weight:600}
+.notes ul{margin:0 0 9px;padding-left:17px}
+.notes li{margin-bottom:5px}
+.quote{border-left:2px solid rgba(56,217,255,.45);padding:2px 0 2px 10px;color:#b7c8d9;margin:6px 0 0}
+.foot{font-size:10.5px;color:#55697d;line-height:1.6;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>CO₂ + 3H₂ → CH₃OH + H₂O</h1>
+<p class="sub">连续流动反应管 · 两支速率的分流竞争（粒子动效）</p>
+
+<div class="canvasWrap"><canvas id="cv"></canvas></div>
+
+<div class="legend">
+  <span><i class="dot" style="background:#4fd18b"></i>CO₂</span>
+  <span><i class="dot" style="background:#9fb8cf;width:6px;height:6px"></i>H₂</span>
+  <span><i class="dot" style="background:#ff9a3c"></i>CO（中间体·逃逸=损失）</span>
+  <span><i class="dot" style="background:#38d9ff"></i>CH₃OH</span>
+</div>
+
+<table class="cmp">
+  <thead><tr><th></th><th class="cA">A 管</th><th class="cB">B 管</th></tr></thead>
+  <tbody>
+    <tr><td>温度</td><td id="aT">210 ℃</td><td id="bT">270 ℃</td></tr>
+    <tr><td>CO₂ 转化率</td><td><b id="aConv">–</b><i id="aConvR"></i></td><td><b id="bConv">–</b><i id="bConvR"></i></td></tr>
+    <tr><td>甲醇选择性</td><td><b id="aSel">–</b><i id="aSelR"></i></td><td><b id="bSel">–</b><i id="bSelR"></i></td></tr>
+    <tr><td>甲醇产率</td><td><b id="aYld">–</b></td><td><b id="bYld">–</b></td></tr>
+  </tbody>
+</table>
+
+<div class="ctrl">
+  <div class="row"><span>调节 B 管温度</span><b id="tlabel">270 ℃</b></div>
+  <input type="range" id="tslider" min="210" max="270" step="5" value="270">
+  <div class="btns">
+    <button id="pause">暂停</button>
+    <button id="reset">重置计数</button>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>三句话看懂</h2>
+  <p><b>1. 出口组成不由 K 决定。</b>气体一边走一边反应，停留时间只有几秒，转化率才 4%~12%，离平衡远得很。出口是"<span class="k">两条路谁跑得快</span>"的结果，不是"终点在哪"的结果。</p>
+  <p><b>2. 选择性 = 分流比。</b>CO₂ 过了Ⅰ就变成 CO，这个 CO 只有两个去向：被加氢成甲醇（蓝色），或者被气流带走（橙色）。<span class="k">橙色出得越多，选择性越低</span>。</p>
+  <p><b>3. 升温改变的是两边的速度。</b>Ⅰ 是吸热反应、活化能大，升温后转化概率涨得最猛（约 3 倍）；Ⅱ 是放热反应，升温后它的"<span class="t">净加氢速率</span>"反而略降（正反应也在加快，但逆反应加得更快，净效果变小）。于是 CO 生得快、耗得慢 → 橙色被冲走 → 选择性 87% → 50%。</p>
+  <p class="quote">所以老师说"与平衡无关"：不用问平衡往哪边移动，只问<strong>生成多快、消耗多快</strong>。这是搬运速度的问题，不是终点位置的问题。</p>
+  <p style="margin-top:9px">小实验：把滑块拖到 <span class="g">250 ℃</span>，看"产率"那一行——转化率还在涨、选择性还没塌，产率最高。这正是工业上控制在 240~250 ℃ 的原因。</p>
+</div>
+
+<p class="foot">注：粒子反应概率按题目给出的转化率/选择性曲线标定，用来演示"分流"机制，不是对反应器的数值求解。</p>
+
+<script>
+(function(){
+'use strict';
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d'), wrap=cv.parentElement;
+var W=0,H=0,DPR=1;
+
+/* ---------- 速率标定：由题目曲线反推两支速率 ---------- */
+var DATA=[[210,4.0,87],[230,7.5,83],[240,10,75],[250,11,70],[270,12.5,50]];
+function refData(t){
+  for(var i=0;i<DATA.length-1;i++){
+    var a=DATA[i],b=DATA[i+1];
+    if(t>=a[0]&&t<=b[0]){var f=(t-a[0])/(b[0]-a[0]);
+      return [a[1]+f*(b[1]-a[1]), a[2]+f*(b[2]-a[2])];}
+  }
+  var l=DATA[DATA.length-1]; return [l[1],l[2]];
+}
+
+var RES=7;    // 停留时间(s)
+var SPAWN=9;  // 每秒进入的 CO2 个数
+var MAXP=320;
+
+/* 由选择性 S 反解 "CO 加氢速率 × 停留时间" */
+function solveK2(S){
+  var lo=1e-4, hi=80;
+  for(var i=0;i<90;i++){
+    var m=(lo+hi)/2;
+    var f=1-(1-Math.exp(-m))/m;   // 生成的 CO 中被加氢的比例
+    if(f<S) lo=m; else hi=m;
+  }
+  return (lo+hi)/2;
+}
+var ANCH=DATA.map(function(d){
+  return {T:d[0], k1:-Math.log(1-d[1]/100)/RES, k2:solveK2(d[2]/100)/RES};
+});
+function interpK(t,key){
+  var A=ANCH;
+  if(t<=A[0].T) return A[0][key];
+  if(t>=A[A.length-1].T) return A[A.length-1][key];
+  for(var i=0;i<A.length-1;i++){
+    if(t>=A[i].T&&t<=A[i+1].T){
+      var f=(t-A[i].T)/(A[i+1].T-A[i].T);
+      return A[i][key]+f*(A[i+1][key]-A[i][key]);
+    }
+  }
+  return A[0][key];
+}
+function kI(t){return interpK(t,'k1');}
+function kJ(t){return interpK(t,'k2');}
+
+/* 出口组成（与粒子同一套速率，做精确积分） */
+function model(t){
+  var r1=kI(t), r2=kJ(t), tau=RES, N=400;
+  var conv=1-Math.exp(-r1*tau);
+  var num=0, den=0;
+  for(var i=0;i<N;i++){
+    var tt=(i+0.5)/N*tau;
+    var w=Math.exp(-r1*tt);        // 该时刻还在生成 CO 的比例
+    den+=w;
+    num+=w*(1-Math.exp(-r2*(tau-tt)));
+  }
+  var sel=den?num/den:0;
+  return {conv:conv*100, sel:sel*100, yld:conv*sel*100};
+}
+
+var SPAWN=9;  // 每秒进入的 CO2 个数
+var MAXP=320;
+
+var tubes=[{name:'A',T:210,color:'#38d9ff'},{name:'B',T:270,color:'#ffb03a'}];
+tubes.forEach(resetTube);
+
+function resetTube(tb){
+  tb.parts=[]; tb.flashes=[]; tb.acc=0;
+  tb.st={in:0,conv:0,meoh:0,coOut:0};
+}
+
+/* ---------- 布局 ---------- */
+function resize(){
+  var r=wrap.getBoundingClientRect();
+  W=Math.max(200,r.width); H=Math.max(170,r.height);
+  DPR=Math.min(window.devicePixelRatio||1,2.5);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  layoutTubes();
+}
+function layoutTubes(){
+  var pad=8, labelH=21, gap=10;
+  var th=(H-2*pad-2*labelH-gap)/2;
+  var x0=W*0.075, x1=W*0.915;
+  tubes.forEach(function(tb,i){
+    tb.y0=pad+labelH+i*(th+labelH+gap);
+    tb.h=th; tb.x0=x0; tb.x1=x1;
+  });
+}
+
+/* ---------- 粒子 ---------- */
+function mk(type,u,y){
+  return {type:type,u:u,y:y,
+    vy:(Math.random()-0.5)*0.09,
+    su:(1/RES)*(0.82+Math.random()*0.36),
+    life:1};
+}
+
+function step(dt){
+  for(var k=0;k<tubes.length;k++){
+    var tb=tubes[k];
+    var rI=kI(tb.T), rJ=kJ(tb.T);
+    var ps=tb.parts;
+
+    /* 进气 */
+    tb.acc+=dt*SPAWN;
+    while(tb.acc>=1){
+      tb.acc-=1;
+      if(ps.length>MAXP-6) break;
+      ps.push(mk('CO2',0.01,0.12+Math.random()*0.76));
+      tb.st.in++;
+      for(var j=0;j<2;j++){
+        if(ps.length>MAXP) break;
+        ps.push(mk('H2',0.0,Math.random()));
+      }
+    }
+
+    /* 运动 + 反应 */
+    for(var i=ps.length-1;i>=0;i--){
+      var p=ps[i];
+      p.u+=p.su*dt;
+      p.y+=p.vy*dt;
+      if(p.y<0.05){p.y=0.05;p.vy=Math.abs(p.vy);}
+      if(p.y>0.95){p.y=0.95;p.vy=-Math.abs(p.vy);}
+
+      if(p.type==='CO2'){
+        if(Math.random()<rI*dt){
+          p.type='CO'; tb.st.conv++;
+          eatH2(ps,1,p);
+          ps.push({type:'H2O',u:p.u,y:p.y,vy:(Math.random()-0.5)*0.2,su:p.su,life:1});
+          tb.flashes.push({u:p.u,y:p.y,age:0,kind:'I'});
+        }
+      }else if(p.type==='CO'){
+        if(Math.random()<rJ*dt){
+          p.type='MEOH'; tb.st.meoh++;
+          eatH2(ps,2,p);
+          tb.flashes.push({u:p.u,y:p.y,age:0,kind:'II'});
+        }
+      }else if(p.type==='H2O'){
+        p.life-=dt*0.6;
+        if(p.life<=0){ps.splice(i,1);continue;}
+      }
+
+      if(p.u>=1){
+        if(p.type==='CO') tb.st.coOut++;
+        ps.splice(i,1);
+      }
+    }
+
+    /* 闪光 */
+    for(var f=tb.flashes.length-1;f>=0;f--){
+      tb.flashes[f].age+=dt;
+      if(tb.flashes[f].age>0.55) tb.flashes.splice(f,1);
+    }
+  }
+}
+
+function eatH2(ps,n,src){
+  var cnt=0;
+  for(var i=ps.length-1;i>=0&&cnt<n;i--){
+    var q=ps[i];
+    if(q.type!=='H2') continue;
+    if(Math.abs(q.u-src.u)>0.09) continue;
+    ps.splice(i,1); cnt++;
+  }
+}
+
+/* ---------- 绘制 ---------- */
+var STY={
+  CO2 :{r:3.5,c:'#4fd18b',g:5},
+  H2  :{r:1.9,c:'#9fb8cf',g:0},
+  CO  :{r:4.0,c:'#ff9a3c',g:8},
+  MEOH:{r:5.0,c:'#38d9ff',g:11},
+  H2O :{r:2.6,c:'#5b8fc7',g:0}
+};
+
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  for(var k=0;k<tubes.length;k++) drawTube(tubes[k]);
+}
+
+function drawTube(tb){
+  var x0=tb.x0, x1=tb.x1, y0=tb.y0, h=tb.h;
+
+  /* 标题 */
+  ctx.font='600 12.5px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=tb.color;
+  ctx.fillText(tb.name+' 管 · '+tb.T+' ℃', x0, y0-6);
+  ctx.fillStyle='rgba(140,165,190,.55)';
+  ctx.font='11px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign='right';
+  ctx.fillText('出口', x1+2, y0-6);
+  ctx.textAlign='left';
+
+  /* 管体 */
+  rrect(x0,y0,x1-x0,h,11);
+  ctx.fillStyle='rgba(255,255,255,.028)'; ctx.fill();
+  ctx.strokeStyle='rgba(110,150,200,.22)'; ctx.lineWidth=1; ctx.stroke();
+
+  /* 进气箭头 */
+  ctx.beginPath();
+  ctx.moveTo(x0-9, y0+h/2); ctx.lineTo(x0-2, y0+h/2-5); ctx.lineTo(x0-2, y0+h/2+5);
+  ctx.closePath();
+  ctx.fillStyle='rgba(79,209,139,.6)'; ctx.fill();
+
+  /* 粒子 */
+  ctx.globalCompositeOperation='lighter';
+  var ps=tb.parts;
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i];
+    var s=STY[p.type]; if(!s) continue;
+    var px=x0+p.u*(x1-x0), py=y0+16+p.y*(h-32);
+    if(s.g){
+      ctx.globalAlpha=0.10;
+      ctx.beginPath(); ctx.arc(px,py,s.r+s.g,0,6.2832);
+      ctx.fillStyle=s.c; ctx.fill();
+    }
+    var core = p.type==='H2O' ? 0.28+0.45*p.life : 0.92;
+    ctx.globalAlpha = p.type==='H2' ? 0.55 : core;
+    ctx.beginPath(); ctx.arc(px,py,s.r,0,6.2832);
+    ctx.fillStyle=s.c; ctx.fill();
+  }
+
+  /* 闪光 */
+  for(var f=0;f<tb.flashes.length;f++){
+    var fl=tb.flashes[f];
+    var a=fl.age/0.55;
+    var px2=x0+fl.u*(x1-x0), py2=y0+16+fl.y*(h-32);
+    ctx.globalAlpha=(1-a)*0.7;
+    ctx.strokeStyle = fl.kind==='I' ? '#ffd48a' : '#7ce9ff';
+    ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.arc(px2,py2,6+a*20,0,6.2832); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+}
+
+/* ---------- 读数 ---------- */
+var el={};
+['aT','bT','aConv','bConv','aSel','bSel','aYld','bYld',
+ 'aConvR','bConvR','aSelR','bSelR'].forEach(function(id){el[id]=document.getElementById(id);});
+
+function updateStats(){
+  tubes.forEach(function(tb,idx){
+    var k=idx===0?'a':'b';
+    var m=model(tb.T);
+    var conv=m.conv, sel=m.sel, yld=m.yld;
+    var rd=refData(tb.T);
+
+    el[k+'T'].textContent=tb.T+' ℃';
+    el[k+'Conv'].textContent=conv.toFixed(1)+'%';
+    el[k+'Sel'].textContent=sel.toFixed(1)+'%';
+    el[k+'Yld'].textContent=yld.toFixed(1)+'%';
+    el[k+'ConvR'].textContent='实测 '+rd[0].toFixed(1)+'%';
+    el[k+'SelR'].textContent='实测 '+rd[1].toFixed(0)+'%';
+  });
+}
+
+/* ---------- 主循环 ---------- */
+var running=true, last=performance.now(), lastDraw=performance.now();
+
+function frame(now){
+  var dt=(now-last)/1000; last=now;
+  if(dt>0.1) dt=0.1;
+  if(dt<0) dt=0;
+  if(running) step(dt);
+  draw();
+  lastDraw=now;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* rAF 被挂起时的兜底 */
+setInterval(function(){
+  var now=performance.now();
+  if(now-lastDraw>350){
+    var dt=Math.min((now-last)/1000,0.06);
+    last=now;
+    if(running) step(dt);
+    draw();
+    lastDraw=now;
+  }
+},40);
+
+setInterval(updateStats,220);
+setInterval(function(){ if(!running) draw(); },500);
+
+/* ---------- 控件 ---------- */
+var slider=document.getElementById('tslider'),
+    tlabel=document.getElementById('tlabel'),
+    btnP=document.getElementById('pause'),
+    btnR=document.getElementById('reset');
+
+slider.addEventListener('input',function(){
+  var v=+slider.value;
+  tlabel.textContent=v+' ℃';
+  tubes[1].T=v;
+});
+slider.addEventListener('change',function(){ resetTube(tubes[1]); });
+
+btnP.addEventListener('click',function(){
+  running=!running;
+  btnP.textContent=running?'暂停':'继续';
+});
+btnR.addEventListener('click',function(){
+  tubes.forEach(resetTube);
+});
+
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',function(){setTimeout(resize,250);});
+
+resize();
+updateStats();
+})();
+</script>
+</body>
+</html>
