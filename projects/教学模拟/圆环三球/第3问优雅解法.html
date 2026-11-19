@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三球圆环 · 第(3)问的优雅解法</title>
+<style>
+  :root{
+    --ink:#1a1c20; --sub:#5b6270; --line:#d5dae2; --bg:#fff;
+    --hl:#0b6b4f; --hlbg:#eaf6f0; --warn:#8a4b00; --warnbg:#fdf3e3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#eef1f5;color:var(--ink);
+    font-family:"Noto Sans CJK SC","PingFang SC","Source Han Sans SC",-apple-system,sans-serif;
+    -webkit-text-size-adjust:100%;}
+  .sheet{max-width:860px;margin:0 auto;background:var(--bg);padding:34px 40px 46px;
+    box-shadow:0 2px 16px rgba(0,0,0,.08);}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:.5px}
+  .kicker{font-size:12px;color:var(--sub);letter-spacing:2px;margin-bottom:18px}
+  h2{font-size:16px;margin:30px 0 10px;padding-left:10px;border-left:4px solid var(--hl)}
+  h3{font-size:14.5px;margin:18px 0 6px;color:#22262c}
+  p,li{font-size:14.4px;line-height:1.85;text-align:justify}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 0;padding-left:22px}
+  li{margin:5px 0}
+  b{color:#111}
+  .hl{background:linear-gradient(transparent 62%,#ffe89a 62%);padding:0 1px}
+  code{font-family:"Liberation Mono","Noto Sans Mono CJK SC",monospace;font-size:13.4px;
+    background:#f2f4f7;padding:1px 4px;border-radius:3px}
+  /* 分式 */
+  .frac{display:inline-block;vertical-align:middle;text-align:center;font-size:.9em;margin:0 .18em;
+    line-height:1.15}
+  .frac i{display:block;border-bottom:1.3px solid currentColor;padding:0 .28em;font-style:normal}
+  .frac em{display:block;padding:0 .28em;font-style:normal}
+  /* 答案框 */
+  .ans{border:1.5px solid var(--hl);background:var(--hlbg);border-radius:8px;
+    padding:12px 16px;margin:16px 0;font-size:15.5px}
+  .ans .lab{font-size:11.5px;letter-spacing:2px;color:var(--hl);display:block;margin-bottom:4px}
+  .note{background:var(--warnbg);border-left:3px solid #d99a2b;padding:9px 13px;border-radius:0 6px 6px 0;
+    font-size:13.6px;color:#4a3608;margin:12px 0}
+  .figs{display:flex;gap:26px;align-items:center;flex-wrap:wrap;margin:10px 0 4px}
+  figcaption{font-size:12.2px;color:var(--sub);text-align:center;margin-top:2px}
+  /* 表格 */
+  table{width:100%;table-layout:fixed;border-collapse:collapse;margin:12px 0;font-size:13.6px}
+  th,td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;word-break:break-word}
+  th{background:#f6f8fa;font-weight:600;font-size:13px;letter-spacing:.5px}
+  td.c{text-align:center;font-variant-numeric:tabular-nums}
+  /* 时间条 */
+  .bar{display:flex;width:100%;height:44px;margin:10px 0 2px;border-radius:6px;overflow:hidden;
+    font-size:12.5px;color:#fff;font-weight:600}
+  .bar div{display:flex;align-items:center;justify-content:center;letter-spacing:1px;
+    border-right:2px solid #fff}
+  .bar div:last-child{border-right:0}
+  .b1{flex:1;background:#3b7dd8}
+  .b2{flex:3;background:#c2542d}
+  .b3{flex:1;background:#3b7dd8}
+  .barlab{display:flex;font-size:12px;color:var(--sub);margin-bottom:14px}
+  .barlab span:nth-child(1){flex:1;text-align:center}
+  .barlab span:nth-child(2){flex:3;text-align:center}
+  .barlab span:nth-child(3){flex:1;text-align:center}
+  .cmp{font-size:13.4px;color:#31363d}
+  .foot{margin-top:26px;padding-top:12px;border-top:1px dashed var(--line);font-size:12.4px;color:var(--sub)}
+  @media print{
+    html,body{background:#fff}
+    .sheet{box-shadow:none;max-width:none;padding:0 6mm}
+    @page{size:A4;margin:16mm 14mm}
+    h2{break-after:avoid}
+    .ans,.note,figure{break-inside:avoid}
+    p,li{font-size:10.6pt}
+    table{font-size:9.8pt}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="kicker">2026-27 高三上 · 江苏无锡期中 · 第 5 题</div>
+  <h1>第 (3) 问：三球系统的运动周期 —— 只用三句话</h1>
+
+  <p>参考答案的做法是"把时间切成 t<sub>1</sub>、t<sub>2</sub>、t<sub>3</sub>、t<sub>4</sub> 四段，I 处再解一个二元二次方程组"。
+  其实这一小题是<b>被设计好的</b>：质量比 1 : 2 让速率比恰好 1 : 2，而 A 走一格、B 走两格，<span class="hl">路程比也恰好 1 : 2</span>，于是两者必然同时回到 I。抓住这一点，全问只剩三件事。</p>
+
+  <div class="figs">
+    <figure style="margin:0">
+      <svg width="330" height="330" viewBox="0 0 400 400">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#c2542d"/>
+          </marker>
+        </defs>
+        <!-- 槽 -->
+        <circle cx="200" cy="200" r="150" fill="none" stroke="#7a8394" stroke-width="1.6"/>
+        <circle cx="200" cy="200" r="122" fill="none" stroke="#7a8394" stroke-width="1.6"/>
+        <circle cx="200" cy="200" r="136" fill="none" stroke="#e3e7ee" stroke-width="26"/>
+        <!-- 直管道 -->
+        <rect x="10" y="46" width="176" height="16" fill="#eef1f6" stroke="#7a8394" stroke-width="1.4"/>
+        <path d="M24 54 q10 -9 20 0 q10 9 20 0 q10 -9 20 0 q10 9 20 0 q10 -9 20 0 q10 9 20 0" fill="none" stroke="#7a8394" stroke-width="1.4"/>
+        <!-- 三点 -->
+        <circle cx="200" cy="64" r="2.6" fill="#c2542d"/>
+        <circle cx="318" cy="268" r="2.6" fill="#c2542d"/>
+        <circle cx="82" cy="268" r="2.6" fill="#c2542d"/>
+        <text x="200" y="46" font-size="19" font-weight="700" fill="#c2542d" text-anchor="middle">Ⅰ</text>
+        <text x="334" y="292" font-size="19" font-weight="700" fill="#c2542d" text-anchor="middle">Ⅱ</text>
+        <text x="66" y="292" font-size="19" font-weight="700" fill="#c2542d" text-anchor="middle">Ⅲ</text>
+        <!-- 球 -->
+        <circle cx="196" cy="64" r="13" fill="#5b6b85" stroke="#2c3542" stroke-width="1.3"/>
+        <text x="196" y="69" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">A</text>
+        <circle cx="318" cy="268" r="13" fill="#8b9bb4" stroke="#2c3542" stroke-width="1.3"/>
+        <text x="318" y="273" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">B</text>
+        <circle cx="82" cy="268" r="13" fill="#8b9bb4" stroke="#2c3542" stroke-width="1.3"/>
+        <text x="82" y="273" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">C</text>
+        <!-- A 的运动方向：顺时针 Ⅰ→Ⅱ -->
+        <path d="M232 76 A 136 136 0 0 1 268 168" fill="none" stroke="#c2542d" stroke-width="2.2" marker-end="url(#ar)"/>
+        <text x="352" y="150" font-size="11.5" fill="#8d97a6" text-anchor="end">m</text>
+        <text x="352" y="166" font-size="11.5" fill="#8d97a6" text-anchor="end">2m ×2</text>
+      </svg>
+      <figcaption>初始：A 在 Ⅰ 以 v 顺时针进入；B(2m) 在 Ⅱ，C(2m) 在 Ⅲ</figcaption>
+    </figure>
+    <div style="flex:1;min-width:250px">
+      <p style="margin:0 0 6px"><b>记号（只为省字，不添麻烦）</b></p>
+      <p style="margin:4px 0">一格弧长 &nbsp; <span class="frac"><i>l = 2πR</i><em>3</em></span> &nbsp;，一格时间 &nbsp;
+      <span class="frac"><i>Δ = l/v = 2πR</i><em>3v</em></span></p>
+      <p style="margin:8px 0;font-size:13.6px;color:var(--sub)">后面所有时间都能写成 Δ 的整数倍：
+      Δ、3Δ、5Δ、15Δ。像数格子一样，不用再碰 R 和 v。</p>
+    </div>
+  </div>
+
+  <h2>一、碰后各球去哪儿？—— 交给"相对运动"，别交给 t<sub>2</sub>、t<sub>3</sub></h2>
+
+  <p>第 (2) 问已知碰后 <b>A 以 v/3 反向（逆时针）、B 以 2v/3 同向（顺时针）</b>离开 Ⅱ。它们此刻反向拉开，
+  <span class="hl">相对速率 = v/3 + 2v/3 = v</span> ——正好还是碰前的速率，这是质量比 1 : 2 送的大礼。</p>
+
+  <p>两球要重新同处一点，相对位移必须补满<b>一整圈</b>（一个逆、一个顺，各自都在动）：</p>
+
+  <div class="ans" style="border-color:#c2542d;background:#fdf0ea">
+    <span class="lab" style="color:#c2542d">下一次相遇</span>
+    <i>t</i> = <span class="frac"><i>2πR</i><em>v</em></span> = 3Δ
+    &nbsp;&nbsp;<span style="font-size:13px;color:#7a4a34">（等价写法：−<i>v</i>/3·<i>t</i> ≡ 2<i>v</i>/3·<i>t</i> (mod 2πR)）</span>
+  </div>
+
+  <p>这期间 B 会在 Ⅲ 处撞 C，但 <b>B、C 质量相同，弹性碰撞就是速度互换</b>；两个 2m 球完全一样，
+  可以认为"穿过去"：那团 2m 的运动状态一路以 2v/3 匀速跑下去，Ⅲ 处的碰撞对<b>状态的演化</b>毫无影响。
+  于是这一步不用管 B 还是 C，只认"一个以 2v/3 顺时针跑的 2m 球"。</p>
+
+  <h2>二、它们在哪相遇？—— 路程比 = 速率比，一眼读出</h2>
+
+  <p>3Δ 内各自走了多远：</p>
+  <ul>
+    <li>A：<span class="frac"><i>v</i><em>3</em></span>·3Δ = <b>l</b> —— 从 Ⅱ 逆时针退一格，正好到 <b>Ⅰ</b>；</li>
+    <li>2m 球：<span class="frac"><i>2v</i><em>3</em></span>·3Δ = <b>2l</b> —— 从 Ⅱ 经 Ⅲ 走两格，也到 <b>Ⅰ</b>。</li>
+  </ul>
+  <p>（1 : 2 的速率配 1 格 : 2 格的路程，必然同时抵达——这就是题目埋的线。）</p>
+
+  <h2>三、Ⅰ 处的碰撞 —— 用"时间反演"，不解方程组</h2>
+
+  <p>相向撞上时，速度是 <b>A：v/3 逆；2m：2v/3 顺</b>。请注意：<span class="hl">这正好是第一次碰撞<b>碰后</b>的那一对速度</span>。</p>
+
+  <p>完全弹性碰撞的方程对时间反演是<b>对称</b>的（换成 −v 后，动量守恒与动能守恒的式子都不变），
+  而方程的解唯一，所以"把第一次碰撞的录像倒放"就是这次碰撞的正确结局 ——
+  <b>A 以 v 顺着原方向离开 Ⅰ，2m 球静止在 Ⅰ</b>。</p>
+
+  <div class="note">
+    <b>想写算式也只一行：</b>动量 2<i>m</i>·<span class="frac"><i>2v</i><em>3</em></span> − <i>m</i>·<span class="frac"><i>v</i><em>3</em></span> = <i>mv</i>，
+    而"一个 m 一个 2m、总动量 mv"的弹性碰撞解唯一，故碰后必为 <i>v</i> 与 0。
+    （参考答案的 2mv<sub>C</sub> − m|v<sub>A</sub>| = … 二元二次方程组，本质上就在算这件事。）
+  </div>
+
+  <h2>四、收尾 —— 构型只"转"了 120°，所以要 3 个循环</h2>
+
+  <p>此刻各球：<b>A 在 Ⅰ 以 v 顺时针</b>，一个 2m 静止在 Ⅰ，另一个 2m 静止在 Ⅲ。
+  再过 Δ（A 从 Ⅰ 走到 Ⅱ）：</p>
+
+  <table>
+    <colgroup><col style="width:26%"><col style="width:37%"><col style="width:37%"></colgroup>
+    <tr><th>时刻</th><th>球的状态</th><th>与"初始构型"比较</th></tr>
+    <tr><td class="c">0</td><td>A@Ⅰ，v 顺时针；2m@Ⅱ；2m@Ⅲ</td><td>（基准）</td></tr>
+    <tr><td class="c">Δ</td><td>A@Ⅱ 反向 v/3；2m@Ⅱ 顺时针 2v/3；2m@Ⅲ</td><td>第一次碰撞</td></tr>
+    <tr><td class="c">4Δ</td><td>A 逆 v/3 抵达 Ⅰ；2m 顺 2v/3 抵达 Ⅰ</td><td>相对速率 v，合拢一圈</td></tr>
+    <tr><td class="c">4Δ 碰后</td><td>A@Ⅰ，v 顺时针；2m@Ⅰ 静止；2m@Ⅲ 静止</td><td>时间反演</td></tr>
+    <tr><td class="c">5Δ</td><td>A@Ⅱ，v 顺时针；2m@Ⅲ；2m@Ⅰ</td><td><b>初始构型整体转 120°</b></td></tr>
+  </table>
+
+  <p>到 5Δ 时：一个 m 在动、两个 2m 静着，动的那个在 Ⅱ、速率 v 顺时针——这<b>逐字</b>就是 t = 0 的图景，
+  只是 Ⅰ→Ⅱ、Ⅱ→Ⅲ、Ⅲ→Ⅰ 做了整体轮换。速率、间距全不变，物理完全等价。</p>
+
+  <div class="bar">
+    <div class="b1">Δ</div><div class="b2">3Δ</div><div class="b3">Δ</div>
+  </div>
+  <div class="barlab">
+    <span>A：Ⅰ→Ⅱ</span><span>相对速率 v，合拢一圈 2πR</span><span>A：Ⅰ→Ⅱ</span>
+  </div>
+
+  <p style="margin-top:0"><b>一个循环 = Δ + 3Δ + Δ = 5Δ</b>，每循环整体转 120°，转满 360° 需 3 个循环：</p>
+
+  <div class="ans">
+    <span class="lab">答 案</span>
+    <i>T</i> = 3 × 5Δ = 15Δ = 15 × <span class="frac"><i>2πR</i><em>3v</em></span>
+    = <b style="font-size:18px"><span class="frac" style="font-size:1em"><i>10πR</i><em>v</em></span></b>
+  </div>
+
+  <p class="cmp"><b>为什么非得 3 个循环？</b> 三个<i>点</i>是等价的，但"装着球的点"在换位：一次旋转后，
+  动球在 Ⅱ、静球在 Ⅲ 和 Ⅰ，组合变了；转三次才回到"静球在 Ⅱ、Ⅲ"的原样。
+  也可以检验：A 要重新<b>在 Ⅰ 以 v 出发</b>只能等 15Δ——t = 4Δ 时它虽也回到 Ⅰ，速度却是 v/3 逆向。</p>
+
+  <p class="cmp" style="background:#f6f8fa;border-radius:6px;padding:10px 13px">
+    <b>顺手验算：</b>T = 5 × (2πR/v)——一个以 v 匀速的球绕 5 圈的时间。全程 A 的速率只取 v、v/3 两种，
+    走的路程 = v·(Δ+Δ) + (v/3)(3Δ) = 3l 每循环，三循环 9l = 6πR 的弧长，与 T 的量级、量纲都对得上。
+  </p>
+
+  <h2>五、和参考答案比，省掉了什么</h2>
+  <table>
+    <colgroup><col style="width:30%"><col style="width:35%"><col style="width:35%"></colgroup>
+    <tr><th>环节</th><th>参考答案</th><th>本解法</th></tr>
+    <tr><td>碰后到再相遇</td><td>分 t<sub>2</sub>（Ⅱ→Ⅲ）、t<sub>3</sub>（Ⅲ→Ⅰ）两段，各做一次除法</td><td><b>一句相对速率</b>：t = 2πR/v</td></tr>
+    <tr><td>相遇位置</td><td>需说明 A 走了 l/2 再走 l/2</td><td>路程比直接给出"正好到 Ⅰ"</td></tr>
+    <tr><td>Ⅰ 处碰撞</td><td>动量 + 动能，解二元二次方程组</td><td><b>时间反演</b>，或一行动量唯一性</td></tr>
+    <tr><td>周期</td><td>比较构型"各转 1/3 圈"，再 ×3</td><td>同一思想，但用 <b>5Δ / 15Δ 数格子</b>表述</td></tr>
+  </table>
+
+  <div class="note" style="background:#eef4fb;border-left-color:#3b7dd8;color:#22364f">
+    <b>这类题的通用套路：</b>①质量相等 ⇒ 碰撞 ≡ 穿过（抹掉次要碰撞）；②同向/反向相对速率 ⇒ 相遇时间 = 相对路程 ÷ 相对速率；
+    ③完全弹性 ⇒ 可倒放，同一对速度"正撞"必原路返回；④圆环 + 等分点 ⇒ 末期比较<b>构型</b>，用旋转对称把周期变成"循环时间 × 次数"。
+  </div>
+
+  <div class="foot">答案：T = 10πR / v &nbsp;·&nbsp; 记号 Δ = 2πR / (3v) 为小球以 v 走 1/3 圆周的时间</div>
+</div>
+</body>
+</html>
