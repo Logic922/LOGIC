@@ -309,6 +309,17 @@ function openItem(){
   else location.href = x.u;
 }
 
+function scrollToFocus(){
+  var el = menuEl.querySelector('.item.focus');
+  if (el){
+    var box = menuEl.getBoundingClientRect();
+    var r = el.getBoundingClientRect();
+    if (r.top < box.top) menuEl.scrollTop -= (box.top - r.top);
+    else if (r.bottom > box.bottom) menuEl.scrollTop += (r.bottom - box.bottom);
+  }
+  var app = document.querySelector('.app');
+  if (app) app.scrollTop = 0;
+}
 function paintSel(){
   var items = menuEl.querySelectorAll('.item');
   for (var i=0;i<items.length;i++){
@@ -357,35 +368,44 @@ menuEl.addEventListener('wheel', function(e){
 }, {passive:false});
 
 /* 触摸：整行拖，监听挂 document（DOM 重建不会丢事件） */
-let touchY = null, touchX = null, acc = 0, inMenu = false;
 const ROWH = 22;
+window.__t = {y:null, x:null, acc:0, in:false, err:null};
 
 document.addEventListener('touchstart', function(e){
-  var t = e.touches[0];
-  inMenu = menuEl.contains(e.target) || (e.target === menuEl);
-  touchY = t.clientY; touchX = t.clientX; acc = 0;
+  try {
+    var t = e.touches[0], w = window.__t;
+    w.y = t.clientY; w.x = t.clientX; w.acc = 0;
+    w.in = menuEl.contains(e.target) || e.target === menuEl;
+  } catch(err){ window.__t.err = 'start:'+err.message; }
 }, {passive:true});
 
 document.addEventListener('touchmove', function(e){
-  if (touchY === null) return;
-  var y = e.touches[0].clientY;
-  var dy = touchY - y;
-  touchY = y;
-  if (!inMenu) return;
-  acc += dy;
-  var guard = 0;
-  while (acc >= ROWH && guard++ < 20){ moveFocus(1); acc -= ROWH; }
-  while (acc <= -ROWH && guard++ < 20){ moveFocus(-1); acc += ROWH; }
+  var w = window.__t;
+  if (w.y === null) return;
+  try {
+    var y = e.touches[0].clientY;
+    var dy = w.y - y;
+    w.y = y;
+    if (!w.in) return;
+    w.acc += dy;
+    var g = 0;
+    while (w.acc >= ROWH && g++ < 20){ moveFocus(1); w.acc -= ROWH; }
+    while (w.acc <= -ROWH && g++ < 20){ moveFocus(-1); w.acc += ROWH; }
+  } catch(err){ w.err = 'move:'+err.message; }
 }, {passive:true});
 
 document.addEventListener('touchend', function(e){
-  if (touchX === null) { touchY = null; return; }
-  var dx = e.changedTouches[0].clientX - touchX;
-  if (inMenu && Math.abs(dx) > 60 && Math.abs(acc) < ROWH*2){
-    var base = flat[focus] ? flat[focus].g : 0;
-    jumpCat((base + (dx < 0 ? 1 : -1) + DB.length) % DB.length);
-  }
-  touchY = null; touchX = null; acc = 0; inMenu = false;
+  var w = window.__t;
+  try {
+    if (w.x !== null && w.in){
+      var dx = e.changedTouches[0].clientX - w.x;
+      if (Math.abs(dx) > 60 && Math.abs(w.acc) < ROWH*2){
+        var base = flat[focus] ? flat[focus].g : 0;
+        jumpCat((base + (dx < 0 ? 1 : -1) + DB.length) % DB.length);
+      }
+    }
+  } catch(err){ w.err = 'end:'+err.message; }
+  w.y = null; w.x = null; w.acc = 0; w.in = false;
 }, {passive:true});
 
 /* ---------------- 键盘 ---------------- */
