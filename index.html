@@ -309,9 +309,21 @@ function openItem(){
   else location.href = x.u;
 }
 
+function paintSel(){
+  var items = menuEl.querySelectorAll('.item');
+  for (var i=0;i<items.length;i++){
+    var on = (i === focus);
+    items[i].classList.toggle('focus', on);
+    var mk = items[i].querySelector('.mk');
+    if (mk) mk.textContent = on ? '❯' : '';
+  }
+  posEl.textContent = (focus+1) + '/' + flat.length;
+  renderDetails();
+  scrollToFocus();
+}
 function moveFocus(d){
   focus = (focus + d + flat.length) % flat.length;
-  render();
+  paintSel();
 }
 function jumpCat(n){
   openSet[n] = true;
@@ -344,28 +356,36 @@ menuEl.addEventListener('wheel', function(e){
   moveFocus(e.deltaY > 0 ? 1 : -1);
 }, {passive:false});
 
-/* 触摸：整行拖 */
-let touchY = null, touchX = null, acc = 0;
+/* 触摸：整行拖，监听挂 document（DOM 重建不会丢事件） */
+let touchY = null, touchX = null, acc = 0, inMenu = false;
 const ROWH = 22;
-menuEl.addEventListener('touchstart', function(e){
-  touchY = e.touches[0].clientY; touchX = e.touches[0].clientX; acc = 0;
+
+document.addEventListener('touchstart', function(e){
+  var t = e.touches[0];
+  inMenu = menuEl.contains(e.target) || (e.target === menuEl);
+  touchY = t.clientY; touchX = t.clientX; acc = 0;
 }, {passive:true});
-menuEl.addEventListener('touchmove', function(e){
+
+document.addEventListener('touchmove', function(e){
   if (touchY === null) return;
-  const y = e.touches[0].clientY;
-  acc += touchY - y;
+  var y = e.touches[0].clientY;
+  var dy = touchY - y;
   touchY = y;
-  while (acc >= ROWH){ moveFocus(1); acc -= ROWH; }
-  while (acc <= -ROWH){ moveFocus(-1); acc += ROWH; }
+  if (!inMenu) return;
+  acc += dy;
+  var guard = 0;
+  while (acc >= ROWH && guard++ < 20){ moveFocus(1); acc -= ROWH; }
+  while (acc <= -ROWH && guard++ < 20){ moveFocus(-1); acc += ROWH; }
 }, {passive:true});
-menuEl.addEventListener('touchend', function(e){
-  if (touchX === null) return;
-  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY;
-  if (Math.abs(dx) > 60){
+
+document.addEventListener('touchend', function(e){
+  if (touchX === null) { touchY = null; return; }
+  var dx = e.changedTouches[0].clientX - touchX;
+  if (inMenu && Math.abs(dx) > 60 && Math.abs(acc) < ROWH*2){
     var base = flat[focus] ? flat[focus].g : 0;
     jumpCat((base + (dx < 0 ? 1 : -1) + DB.length) % DB.length);
   }
-  touchY = null; touchX = null; acc = 0;
+  touchY = null; touchX = null; acc = 0; inMenu = false;
 }, {passive:true});
 
 /* ---------------- 键盘 ---------------- */
