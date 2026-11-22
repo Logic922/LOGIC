@@ -1,212 +1,579 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0a0c11">
-<title>LOGIC · 作品集</title>
-<meta name="description" content="单文件前端、物理解说动画、8-bit 播放器，和一个 AI 助手的配置仓库。">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LOGIC">
+<meta name="theme-color" content="#101418">
+<title>logicmokou</title>
+<meta name="description" content="logicmokou 的东西：单文件前端、物理解说动画、8-bit MIDI 播放器。">
 <style>
-  :root{
-    --bg:#0a0c11; --ink:#e9ecf3; --dim:#8d95a8; --faint:#5d6579;
-    --line:rgba(255,255,255,.08); --card:rgba(255,255,255,.025);
-    --accent:#7ee0c9; --accent2:#9b8cff;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{scroll-behavior:smooth}
-  body{
-    margin:0;background:var(--bg);color:var(--ink);
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  body::before{
-    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
-    background:
-      radial-gradient(60% 40% at 15% 0%, rgba(126,224,201,.10), transparent 60%),
-      radial-gradient(50% 40% at 90% 10%, rgba(155,140,255,.10), transparent 60%);
-  }
-  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:72px 24px 96px}
+@font-face{font-family:Hack;src:url('fonts/hack-regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:Hack;src:url('fonts/hack-bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
 
-  header{margin-bottom:64px}
-  .mark{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-  .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px var(--accent)}
-  .mono{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
-  h1{margin:0 0 14px;font-size:clamp(30px,7vw,54px);line-height:1.15;letter-spacing:-.02em;font-weight:700;text-wrap:balance}
-  h1 em{font-style:normal;background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .lead{max-width:640px;margin:0;color:var(--dim);font-size:17px}
-  .lead code{font:13px/1 ui-monospace,Menlo,monospace;color:var(--accent);background:rgba(126,224,201,.08);padding:3px 6px;border-radius:5px}
+/* shorin kitty 主题（matugen） */
+:root{
+  --bg:#101418; --fg:#e0e2e8; --dim:#8c9198; --faint:#5b636b;
+  --sel:#b8c8da; --selfg:#23323f;
+  --c0:#4c4c4c; --c1:#ac8a8c; --c2:#8aac8b; --c3:#aca98a;
+  --c4:#99ccfa; --c5:#ac8aac; --c6:#8aacab; --c7:#f0f0f0;
+  --c8:#8c9198; --c12:#a39ec4; --c14:#9ec3c4;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font:13px/1.5 Hack,Menlo,Consolas,monospace;
+  font-variant-ligatures:none;
+  -webkit-font-smoothing:antialiased;touch-action:manipulation;
+  -webkit-touch-callout:none;overflow:hidden;
+}
 
-  h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
-     margin:56px 0 18px;display:flex;align-items:center;gap:12px;font-weight:600}
-  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+#trailcv{position:fixed;inset:0;pointer-events:none;z-index:55}
 
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-  .grid.one{grid-template-columns:1fr;gap:0;margin-bottom:8px}
-  .card.feature{padding:28px 26px;background:linear-gradient(120deg,rgba(126,224,201,.07),rgba(155,140,255,.07)),var(--card)}
-  .card.feature h3{font-size:22px}
-  .card.feature p{font-size:15.5px}
-  .card{
-    position:relative;display:flex;flex-direction:column;gap:10px;
-    padding:22px;border:1px solid var(--line);border-radius:14px;
-    background:var(--card);text-decoration:none;color:inherit;
-    transition:transform .18s ease,border-color .18s ease,background .18s ease;
-  }
-  .card:hover{transform:translateY(-3px);border-color:rgba(126,224,201,.35);background:rgba(255,255,255,.05)}
-  .card h3{margin:0;font-size:18px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
-  .card p{margin:0;color:var(--dim);font-size:14.5px;flex:1}
-  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-  .tag{font:11px/1 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:var(--faint);
-       border:1px solid var(--line);border-radius:999px;padding:5px 9px}
-  .go{font:12px/1 ui-monospace,Menlo,monospace;color:var(--accent);letter-spacing:.06em;opacity:.85}
-  .card:hover .go{opacity:1}
-  .star{font-size:11px;color:var(--accent2);border:1px solid rgba(155,140,255,.35);
-        border-radius:999px;padding:2px 8px;font-weight:500;letter-spacing:.04em}
+/* ---------- 启动动画 ---------- */
+#boot{
+  position:fixed;inset:0;z-index:50;background:var(--bg);
+  padding:18px 16px;font-size:11.5px;line-height:1.28;color:#7f878f;
+  overflow:hidden;pointer-events:none;
+}
+#boot p{margin:0;white-space:pre-wrap}
+#boot .ok{color:var(--c2)}
+#boot .pend{color:#8a929a}
+.cur{display:inline-block;width:7px;height:14px;background:#e0e2e8;vertical-align:-2px;
+     animation:blink 1.05s steps(1) infinite}
+@keyframes blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
 
-  .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-  .btn{font-size:13.5px;padding:9px 16px;border-radius:9px;border:1px solid var(--line);
-       color:var(--ink);text-decoration:none;transition:.16s}
-  .btn:hover{border-color:rgba(126,224,201,.4);background:rgba(126,224,201,.07)}
-  .btn.primary{background:var(--accent);color:#04120f;border-color:transparent;font-weight:600}
-  .btn.primary:hover{filter:brightness(1.08)}
+/* ---------- starship powerline（照 shorin starship.toml） ---------- */
+.ps{display:inline-flex;align-items:center;height:17px;font-size:11px;line-height:17px;vertical-align:middle}
+.ps .cap-l{width:4px;height:17px;background:#feb0d3;border-radius:0 8px 8px 0}
+.ps .cap-r{width:4px;height:17px;background:#59404b;border-radius:8px 0 0 8px}
+.ps .seg{height:17px;padding:0 .8ch;display:flex;align-items:center;white-space:nowrap}
+.ps .arr{position:relative;width:7px;height:17px;background:var(--next)}
+.ps .arr::before{content:'';position:absolute;inset:0;background:var(--prev);
+  clip-path:polygon(0 0,100% 50%,0 100%)}
+.ps .chr{color:#521d3a;font-weight:700;margin-left:.6ch}
+.ps .sp{width:.6ch}
 
-  footer{margin-top:72px;padding-top:26px;border-top:1px solid var(--line);
-         color:var(--faint);font-size:13px;display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
-  footer a{color:var(--dim);text-decoration:none}
-  footer a:hover{color:var(--accent)}
+/* ---------- 应用 ---------- */
+.app{
+  position:fixed;inset:0;display:grid;overflow:hidden;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  max-width:820px;margin:0 auto;
+}
+.app:focus{outline:none}
 
-  @media (max-width:520px){
-    .wrap{padding:48px 18px 72px}
-    .grid{grid-template-columns:1fr}
-  }
+.head{padding:16px 18px 0;overflow:hidden}
+.logo{
+  margin:0;color:var(--c5);font-size:8px;line-height:1.05;
+  white-space:pre;overflow:hidden;display:none;
+}
+.logo-sm{margin:0;color:var(--c5);font-weight:700;font-size:13px;letter-spacing:.04em}
+.logo-sm .v{color:#e0e2e8;font-weight:400;margin-left:1.4ch;font-size:11px}
+@media (min-width:760px){
+  .logo{display:block}
+  .logo-sm{display:none}
+}
+.sub{margin-top:8px;color:var(--c6);font-weight:700;font-size:12px}
+.mode{margin-top:1px;color:var(--faint);font-size:11px}
+
+/* 菜单区 */
+.menu{
+  overflow-y:auto;overflow-x:hidden;padding:14px 18px 8px;min-height:0;
+  scrollbar-width:none;touch-action:none;overscroll-behavior:contain;
+}
+.menu::-webkit-scrollbar{display:none}
+
+.item{
+  display:flex;align-items:baseline;gap:0;min-width:0;
+  height:22px;line-height:22px;white-space:nowrap;
+  color:var(--fg);padding-left:2ch;
+}
+.item .mk{width:2ch;color:var(--c6);font-weight:700}
+.item .ar{width:2ch;color:var(--faint)}
+.item .nm{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.item .cnt{color:var(--faint);margin-left:1.4ch;font-size:11px}
+.item.leaf{
+  padding-left:6ch;color:var(--fg);
+}
+.item.leaf .nm{color:var(--fg)}
+.item.leaf .meta{color:var(--faint);margin-left:1.4ch;font-size:11px}
+.item.leaf .desc{color:var(--dim);margin-left:2ch;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.item.focus{background:var(--sel);color:var(--selfg)}
+.item.focus .mk{color:var(--selfg)}
+.item.focus .ar{color:#41586b}
+.item.focus .nm{color:var(--selfg);font-weight:700}
+.item.focus .cnt,.item.focus .meta,.item.focus .desc{color:#35505f}
+.item:hover:not(.focus){background:#1a222a}
+
+/* 分隔线 + details */
+.rule{margin:2px 18px 0;color:#2a333c;overflow:hidden;white-space:nowrap}
+.details{
+  padding:8px 18px 12px;color:var(--dim);font-size:11.5px;line-height:1.65;min-height:5.2em;
+}
+.details .k{color:var(--faint)}
+.details .p{color:var(--c4);word-break:break-all}
+.details .d{color:var(--fg)}
+.details .hint{color:var(--faint);margin-top:4px}
+
+/* 底栏 */
+.statusbar{
+  display:flex;align-items:center;gap:2ch;height:24px;padding:0 18px;
+  background:#141b21;border-top:1px solid var(--line);
+  color:var(--dim);font-size:11px;user-select:none;
+}
+.statusbar .keys{display:flex;gap:1.4ch;flex:1;min-width:0;overflow:hidden}
+.statusbar kbd{font:inherit;color:var(--fg);background:#202a32;border:1px solid #33404b;
+  border-radius:2px;padding:0 3px}
+.statusbar .keyhint{color:var(--c6);font-size:11px;min-width:0;overflow:hidden}
+.statusbar .pos{color:var(--faint);white-space:nowrap}
+
+@media (max-width:640px){
+  .head{padding:10px 12px 0}
+  .logo{font-size:7px}
+  .menu{padding:10px 12px 6px}
+  .item{padding-left:1ch}
+  .item.leaf{padding-left:4ch;height:auto;min-height:22px;flex-wrap:wrap}
+  .item.leaf .desc{flex:1 1 100%;margin-left:2ch;white-space:normal;font-size:11px;line-height:1.3;padding-bottom:2px}
+  .rule{margin:2px 12px 0}
+  .details{padding:6px 12px 10px}
+  .statusbar{padding:0 12px}
+  .statusbar .hide-m{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  #boot{display:none}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<canvas id="trailcv"></canvas>
 
-  <header>
-    <div class="mark"><span class="dot"></span><span class="mono">LOGIC · 个人作品集</span></div>
-    <h1>把题目做成<em>能动手的东西</em>。</h1>
-    <p class="lead">
-      单文件前端、物理解说动画、8-bit 播放器，还有一个跑在 iOS 上的 AI 助手配置仓库。
-      全部零构建 —— 点开就能跑，不用 npm，不用等编译。
-    </p>
-    <div class="row">
-      <a class="btn primary" href="#works">看看作品</a>
-      <a class="btn" href="https://github.com/Logic922/LOGIC">GitHub 源码</a>
-    </div>
-  </header>
+<div id="boot"></div>
 
-  <h2 id="works">大型项目</h2>
-  <div class="grid one">
-
-    <a class="card feature" href="https://logic922.github.io/MIDI8BIT/">
-      <h3>MIDI8BIT <span class="star">主打</span></h3>
-      <p>单文件 8-bit MIDI 播放器。导入 MIDI，实时渲染成芯片音色，带示波器、音符卷帘、播放列表、后台预渲染与四档位深导出。有独立站点和仓库，构建产物 114 KB。</p>
-      <div class="tags"><span class="tag">Web Audio</span><span class="tag">PWA</span><span class="tag">114 KB</span><span class="tag">单文件</span></div>
-      <span class="go">打开独立站点 →</span>
-    </a>
-
+<div class="app" tabindex="0">
+  <div class="head">
+<div class="logo-sm">LOGICMOKOU<span class="v">v1.0</span></div>
+<pre class="logo">██╗      ██████╗  ██████╗ ██╗ ██████╗     ███╗   ███╗ ██████╗ ██╗  ██╗ ██████╗ ██╗   ██╗
+██║     ██╔═══██╗██╔════╝ ██║██╔════╝     ████╗ ████║██╔═══██╗██║ ██╔╝██╔═══██╗██║   ██║
+██║     ██║   ██║██║  ███╗██║██║          ██╔████╔██║██║   ██║█████╔╝ ██║   ██║██║   ██║
+██║     ██║   ██║██║   ██║██║██║          ██║╚██╔╝██║██║   ██║██╔═██╗ ██║   ██║██║   ██║
+███████╗╚██████╔╝╚██████╔╝██║╚██████╗     ██║ ╚═╝ ██║╚██████╔╝██║  ██╗╚██████╔╝╚██████╔╝
+╚══════╝ ╚═════╝  ╚═════╝ ╚═╝ ╚═════╝     ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ </pre>
+    <div class="sub">静态站点 · 单文件前端 · 物理演示</div>
+    <div class="mode">Mode: static (github.io/Logic922)</div>
   </div>
 
-  <h2>题目模拟</h2>
-  <div class="grid">
+  <div class="menu" id="menu"></div>
 
-    <a class="card" href="projects/教学模拟/波沙盒/index.html">
-      <h3>波的干涉 / 衍射沙盒</h3>
-      <p>Three.js 写的 3D 波场沙盒，可拖波源看干涉条纹与惠更斯原理的实时演化。</p>
-      <div class="tags"><span class="tag">Three.js</span><span class="tag">物理</span><span class="tag">3D</span></div>
-      <span class="go">打开沙盒 →</span>
-    </a>
+  <div class="rule" id="rule"></div>
+  <div class="details" id="details"></div>
 
-    <a class="card" href="projects/教学模拟/圆环三球/anim.html">
-      <h3>三球圆环</h3>
-      <p>圆周运动与约束问题：运动动画，外加一份第 (3) 问的优雅解法。</p>
-      <div class="tags"><span class="tag">圆周运动</span><span class="tag">动画</span><span class="tag">解题</span></div>
-      <span class="go">看动画 →</span>
-    </a>
-
-    <a class="card" href="projects/教学模拟/斜面圆弧动铰摆.html">
-      <h3>斜面 · 圆弧 · 动铰摆</h3>
-      <p>复合轨道的运动学演示，动铰摆与斜面圆弧衔接处的速度关系看得见。</p>
-      <div class="tags"><span class="tag">运动学</span><span class="tag">单文件</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-    <a class="card" href="projects/教学模拟/摆的沙盒.html">
-      <h3>摆的沙盒</h3>
-      <p>单摆 / 动铰摆的交互沙盒，拖参数看周期与轨迹怎么变。</p>
-      <div class="tags"><span class="tag">单摆</span><span class="tag">交互</span><span class="tag">单文件</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-    <a class="card" href="projects/教学模拟/圆环碰撞.html">
-      <h3>圆环碰撞</h3>
-      <p>三球在圆环内的碰撞与运动动画，单文件版本。</p>
-      <div class="tags"><span class="tag">碰撞</span><span class="tag">动画</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-    <a class="card" href="projects/教学模拟/凹槽传送带动画/index.html">
-      <h3>凹槽 · 滑块 · 传送带</h3>
-      <p>传送带模型三件套：凹槽 A、滑块 B、传送带 C 的相对运动模拟，HTML/CSS/JS 分层写的。</p>
-      <div class="tags"><span class="tag">相对运动</span><span class="tag">传送带</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-    <a class="card" href="projects/教学模拟/CO2制甲醇演示/index.html">
-      <h3>CO₂ 制甲醇</h3>
-      <p>CO₂ 加氢制甲醇的分流机制与反应速率演示，双页结构。</p>
-      <div class="tags"><span class="tag">化学</span><span class="tag">速率</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-  </div>
-
-  <h2>小玩意</h2>
-  <div class="grid">
-    <a class="card" href="奇怪小制作/Chat.html">
-      <h3>月见 · 私语</h3>
-      <p>40 KB 单文件聊天界面：深色玻璃拟态，可接任意 OpenAI 兼容接口，Key 只存在本地。</p>
-      <div class="tags"><span class="tag">LLM</span><span class="tag">单文件</span><span class="tag">零依赖</span></div>
-      <span class="go">打开 →</span>
-    </a>
-
-    <a class="card" href="https://github.com/Logic922/LOGIC/tree/main/minis">
-      <h3>Minis 助手配置</h3>
-      <p>跑在 iOS 上的 AI 助手的全局提示词、人格文件，和 12 个自建技能（iSH 下载、数学制图、中文 PDF、精确编辑……）。</p>
-      <div class="tags"><span class="tag">Prompt</span><span class="tag">Skills</span><span class="tag">iOS</span></div>
-      <span class="go">看仓库 →</span>
-    </a>
-  </div>
-
-  <h2>关于</h2>
-  <p style="color:var(--dim);max-width:700px;margin:0">
-    大部分东西是为了把某个具体题目讲清楚才写的，所以数值和场景常常只对得上那一题。
-    代码以实用为主，注释是给自己看的。所有作品都是纯前端、无构建、可离线运行 —— 除了需要调 API 的那几个。
-  </p>
-
-  <footer>
-    <span>© 2026 LOGIC · 用单文件搭起来的</span>
-    <span>
-      <a href="https://github.com/Logic922/LOGIC">源码</a> ·
-      <a href="https://github.com/Logic922/MIDI8BIT">MIDI8BIT</a> ·
-      <a href="https://github.com/Logic922">GitHub</a>
+  <div class="statusbar">
+    <span class="keys">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 移动</span>
+      <span class="hide-m"><kbd>↵</kbd> 展开/打开</span>
+      <span class="hide-m"><kbd>1</kbd>–<kbd>4</kbd> 分类</span>
     </span>
-  </footer>
-
+    <span class="keyhint" id="keyhint"></span>
+    <span class="pos" id="pos"></span>
+  </div>
 </div>
+
 <script>
-  if ('serviceWorker' in navigator) {
-    addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
+/* ---------------- 数据 ---------------- */
+const DB = [
+  { id:'major', label:'大型项目', items:[
+    { n:'midi8bit', s:'113K', t:'dir', d:'8-bit MIDI 播放器，示波器 + 卷帘 + 导出', u:'https://logic922.github.io/MIDI8BIT/' }
+  ]},
+  { id:'sim', label:'题目模拟', items:[
+    { n:'waves', s:'36K', t:'dir', d:'波的干涉与衍射，可以拖波源', u:'projects/教学模拟/波沙盒/index.html' },
+    { n:'ring3', s:'17K', t:'dir', d:'圆环内三球的圆周运动，附第 (3) 问解法', u:'projects/教学模拟/圆环三球/anim.html' },
+    { n:'ramp-hinge', s:'22K', t:'dir', d:'斜面、圆弧、动铰摆的衔接', u:'projects/教学模拟/斜面圆弧动铰摆.html' },
+    { n:'pendulum', s:'24K', t:'dir', d:'单摆和动铰摆，参数随便拖', u:'projects/教学模拟/摆的沙盒.html' },
+    { n:'ring-collide', s:'5K', t:'dir', d:'圆环内的三球碰撞', u:'projects/教学模拟/圆环碰撞.html' },
+    { n:'belt', s:'34K', t:'dir', d:'凹槽 A、滑块 B、传送带 C 的相对运动', u:'projects/教学模拟/凹槽传送带动画/index.html' },
+    { n:'co2-meoh', s:'15K', t:'dir', d:'CO₂ 加氢制甲醇的分流与速率', u:'projects/教学模拟/CO2制甲醇演示/index.html' }
+  ]},
+  { id:'toys', label:'小玩意', items:[
+    { n:'chat.html', s:'40K', t:'file', d:'月见 · 私语，单文件聊天界面，Key 只存本地', u:'奇怪小制作/Chat.html' },
+    { n:'minis', s:'repo', t:'dir', d:'在 iOS 上跑的那套助手配置和自写技能', u:'https://github.com/Logic922/LOGIC/tree/main/minis' }
+  ]},
+  { id:'links', label:'链接', items:[
+    { n:'github', s:'', t:'ext', d:'github.com/Logic922', u:'https://github.com/Logic922' },
+    { n:'source', s:'', t:'ext', d:'github.com/Logic922/LOGIC', u:'https://github.com/Logic922/LOGIC' },
+    { n:'releases', s:'', t:'ext', d:'MIDI8BIT v1.0.1', u:'https://github.com/Logic922/MIDI8BIT' }
+  ]}
+];
+
+/* ---------------- 状态 ---------------- */
+let openSet = { 0: true, 1: true };   // 允许多个展开：大型项目 + 题目模拟
+let focus = 0;               // 扁平列表中的焦点
+let flat = [];        // [{type:'app',g}|{type:'item',g,r}]
+
+const menuEl = document.getElementById('menu');
+const detEl  = document.getElementById('details');
+const posEl  = document.getElementById('pos');
+const keyEl  = document.getElementById('keyhint');
+const ruleEl = document.getElementById('rule');
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function buildFlat(){
+  flat = [];
+  DB.forEach(function(g, gi){
+    flat.push({type:'app', g:gi});
+    if (openSet[gi]){
+      g.items.forEach(function(_, ri){ flat.push({type:'item', g:gi, r:ri}); });
+    }
+  });
+  if (focus >= flat.length) focus = flat.length - 1;
+  if (focus < 0) focus = 0;
+}
+
+function render(){
+  buildFlat();
+  var html = '';
+  for (var i=0;i<flat.length;i++){
+    var it = flat[i];
+    var f = (i === focus) ? ' focus' : '';
+    if (it.type === 'app'){
+      var g = DB[it.g];
+      var arrow = openSet[it.g] ? '▾' : '▸';
+      html += '<div class="item cat'+f+'" data-i="'+i+'">' +
+              '<span class="mk">'+(i===focus?'❯':'')+'</span>' +
+              '<span class="ar">'+arrow+'</span>' +
+              '<span class="nm">'+esc(g.label)+'</span>' +
+              '<span class="cnt">'+g.items.length+'</span></div>';
+    } else {
+      var gi = DB[it.g], x = gi.items[it.r];
+      html += '<div class="item leaf'+f+'" data-i="'+i+'">' +
+              '<span class="mk">'+(i===focus?'❯':'')+'</span>' +
+              '<span class="ar"></span>' +
+              '<span class="nm">'+esc(x.n)+'</span>' +
+              '<span class="meta">'+esc(x.s||'')+'</span>' +
+              '<span class="desc">'+esc(x.d)+'</span></div>';
+    }
   }
+  menuEl.innerHTML = html;
+  renderDetails();
+  var total = DB.reduce(function(a,g){ return a + g.items.length; }, 0);
+  posEl.textContent = (focus+1) + '/' + flat.length;
+  var el = menuEl.querySelector('.item.focus');
+  if (el){
+    var box = menuEl.getBoundingClientRect();
+    var r = el.getBoundingClientRect();
+    if (r.top < box.top) menuEl.scrollTop -= (box.top - r.top);
+    else if (r.bottom > box.bottom) menuEl.scrollTop += (r.bottom - box.bottom);
+  }
+  var app = document.querySelector('.app');
+  if (app) app.scrollTop = 0;
+}
+
+function curItem(){
+  var it = flat[focus];
+  if (!it) return null;
+  return it;
+}
+
+function renderDetails(){
+  var it = curItem();
+  if (!it){ detEl.innerHTML = ''; return; }
+  if (it.type === 'app'){
+    var g = DB[it.g];
+    detEl.innerHTML =
+      '<div><span class="k">section </span><span class="d">'+esc(g.label)+'</span></div>' +
+      '<div><span class="k">entries  </span><span class="d">'+g.items.length+'</span></div>' +
+      '<div class="hint">↵ 展开 / 收起</div>';
+  } else {
+    var x = DB[it.g].items[it.r];
+    detEl.innerHTML =
+      '<div><span class="k">file   </span><span class="d">'+esc(x.n)+'</span>' +
+        '<span class="k">   size </span><span class="d">'+esc(x.s||'—')+'</span></div>' +
+      '<div><span class="k">about  </span><span class="d">'+esc(x.d)+'</span></div>' +
+      '<div><span class="p">'+esc(x.u)+'</span></div>' +
+      '<div class="hint">↵ 打开</div>';
+  }
+}
+
+function openItem(){
+  var it = curItem();
+  if (!it) return;
+  if (it.type === 'app'){
+    openSet[it.g] = !openSet[it.g];
+    buildFlat();
+    for (var i=0;i<flat.length;i++) if (flat[i].type==='app' && flat[i].g===it.g){ focus = i; break; }
+    render();
+    return;
+  }
+  var x = DB[it.g].items[it.r];
+  if (/^https?:/.test(x.u)) window.open(x.u,'_blank','noopener');
+  else location.href = x.u;
+}
+
+function moveFocus(d){
+  focus = (focus + d + flat.length) % flat.length;
+  render();
+}
+function jumpCat(n){
+  openSet[n] = true;
+  buildFlat();
+  for (var i=0;i<flat.length;i++) if (flat[i].type==='app' && flat[i].g===n){ focus = i; break; }
+  render();
+}
+/* ---------------- 交互 ---------------- */
+menuEl.addEventListener('click', function(e){
+  var el = e.target.closest('.item');
+  if (!el) return;
+  focus = +el.dataset.i;
+  openItem();
+});
+menuEl.addEventListener('mousemove', function(e){
+  var el = e.target.closest('.item');
+  if (!el) return;
+  var i = +el.dataset.i;
+  if (i === focus) return;
+  focus = i;
+  var items = menuEl.querySelectorAll('.item');
+  for (var j=0;j<items.length;j++) items[j].classList.toggle('focus', j===i);
+  var mks = menuEl.querySelectorAll('.mk');
+  for (var k=0;k<mks.length;k++) mks[k].textContent = (k===i) ? '❯' : '';
+  posEl.textContent = (focus+1)+'/'+flat.length;
+  renderDetails();
+});
+menuEl.addEventListener('wheel', function(e){
+  e.preventDefault();
+  moveFocus(e.deltaY > 0 ? 1 : -1);
+}, {passive:false});
+
+/* 触摸：整行拖 */
+let touchY = null, touchX = null, acc = 0;
+const ROWH = 22;
+menuEl.addEventListener('touchstart', function(e){
+  touchY = e.touches[0].clientY; touchX = e.touches[0].clientX; acc = 0;
+}, {passive:true});
+menuEl.addEventListener('touchmove', function(e){
+  if (touchY === null) return;
+  const y = e.touches[0].clientY;
+  acc += touchY - y;
+  touchY = y;
+  while (acc >= ROWH){ moveFocus(1); acc -= ROWH; }
+  while (acc <= -ROWH){ moveFocus(-1); acc += ROWH; }
+}, {passive:true});
+menuEl.addEventListener('touchend', function(e){
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX, dy = e.changedTouches[0].clientY;
+  if (Math.abs(dx) > 60){
+    var base = flat[focus] ? flat[focus].g : 0;
+    jumpCat((base + (dx < 0 ? 1 : -1) + DB.length) % DB.length);
+  }
+  touchY = null; touchX = null; acc = 0;
+}, {passive:true});
+
+/* ---------------- 键盘 ---------------- */
+let bootDone = false;
+function markBootDone(){
+  bootDone = true;
+  var b = document.getElementById('boot');
+  if (b) b.remove();
+}
+
+function onKey(e){
+  if (e.__miniKey) return;
+  e.__miniKey = 1;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key || '', code = e.keyCode || 0;
+
+  if (keyEl){
+    keyEl.textContent = 'key: ' + (k || code);
+    clearTimeout(onKey._t);
+    onKey._t = setTimeout(function(){ keyEl.textContent = ''; }, 1500);
+  }
+
+  if (!bootDone){ markBootDone(); if (typeof skipBoot === 'function') skipBoot(); return; }
+
+  if (k==='ArrowDown'||k==='j'||code===40||code===74){ e.preventDefault(); moveFocus(1); }
+  else if (k==='ArrowUp'||k==='k'||code===38||code===75){ e.preventDefault(); moveFocus(-1); }
+  else if (k==='ArrowRight'||k==='l'||code===39||code===76){
+    e.preventDefault();
+    var ci = flat[focus];
+    if (ci && ci.type==='app' && !openSet[ci.g]) openItem();
+  }
+  else if (k==='ArrowLeft'||k==='h'||code===37||code===72){
+    e.preventDefault();
+    var cj = flat[focus];
+    if (cj && cj.type==='item'){
+      for (var q=0;q<flat.length;q++) if (flat[q].type==='app' && flat[q].g===cj.g){ focus=q; break; }
+      render();
+    } else if (cj && openSet[cj.g]) openItem();
+  }
+  else if (k==='Enter'||k===' '||code===13||code===32){ e.preventDefault(); openItem(); }
+  else if (k>='1' && k<='4'){ jumpCat(parseInt(k,10)-1); }
+}
+window.addEventListener('keydown', onKey, true);
+document.addEventListener('keydown', onKey, true);
+
+const appEl = document.querySelector('.app');
+try { appEl.focus({preventScroll:true}); } catch(_) { appEl.focus(); }
+window.addEventListener('click', function(){ try{ appEl.focus({preventScroll:true}); }catch(_){} }, true);
+
+/* ---------------- 启动动画（JS 驱动，真实 arch 日志） ---------------- */
+let skipBoot = null;
+(function(){
+  const boot = document.getElementById('boot');
+  if (!boot) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ boot.remove(); bootDone = true; return; }
+
+  const timers = [];
+  let stopped = false;
+  skipBoot = function(){
+    stopped = true;
+    timers.forEach(clearTimeout);
+  };
+  function at(ms, fn){
+    if (stopped) return;
+    timers.push(setTimeout(function(){ if (!stopped) fn(); }, ms));
+  }
+
+  function line(cls, html){
+    const p = document.createElement('p');
+    p.className = cls;
+    p.innerHTML = html;
+    boot.appendChild(p);
+    return p;
+  }
+
+  /* 真实 systemd 输出：pending 行稍后在同一行被 OK 覆盖 */
+  const LOG = [
+    [0,   '         Starting Flush Journal to Persistent Storage...',
+          '<span class="ok">[  OK  ]</span> Finished Flush Journal to Persistent Storage.', 260],
+    [70,  '[   10.376192] systemd-journald[126]: Received client request to flush runtime journal.'],
+    [140, '<span class="ok">[  OK  ]</span> Started User Database Manager.'],
+    [200, '<span class="ok">[  OK  ]</span> Reached target Local File Systems.'],
+    [260, '         Starting Rule-based Manager for Device Events and Files...',
+          '<span class="ok">[  OK  ]</span> Started Rule-based Manager for Device Events and Files.', 220],
+    [480, '<span class="ok">[  OK  ]</span> Found device /dev/tty1.'],
+    [540, '         Starting User Login Management...',
+          '<span class="ok">[  OK  ]</span> Reached target Login Prompts.', 260],
+    [800, '<span class="ok">[  OK  ]</span> Started Getty on tty1.'],
+    [860, '<span class="ok">[  OK  ]</span> Reached target Multi-User System.']
+  ];
+
+  LOG.forEach(function(row){
+    at(row[0], function(){
+      const p = line('', (row[2] ? '<span class="pend">'+row[1]+'</span>' : row[1]));
+      if (row[2]) setTimeout(function(){ if (!stopped) p.innerHTML = row[2]; }, row[3]);
+    });
+  });
+
+  /* agetty */
+  at(960, function(){
+    line('', '\nArch Linux 6.13.1-arch1-1 (tty1)');
+    line('', '\narchlinux login: <span id="buser"></span><span class="cur"></span>');
+    type(document.getElementById('buser'), 'logicmokou', 45, function(){
+      at(120, function(){
+        const c = boot.querySelector('.cur'); if (c) c.remove();
+        const d = new Date(), p = n => String(n).padStart(2,'0');
+        const w = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        line('', 'Last login: ' + w[d.getDay()]+' '+m[d.getMonth()]+' '+p(d.getDate())+' '+
+                  p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())+' on tty1');
+
+        at(90, function(){
+          const ps = document.getElementById('psTpl').innerHTML;
+          line('psline', ps.replace('__TIME__', p(d.getHours())+':'+p(d.getMinutes())));
+          const cmd = boot.querySelector('#bcmd');
+          type(cmd, 'tui', 90, function(){
+            at(240, function(){ markBootDone(); });
+          });
+        });
+      });
+    });
+  });
+
+  /* 真打字 */
+  function type(el, text, speed, done){
+    if (!el) { done && done(); return; }
+    let i = 0;
+    (function step(){
+      if (stopped) return;
+      el.textContent = text.slice(0, ++i);
+      var cu = document.querySelector('#boot .cur');
+      pushCursor(cu);
+      if (i < text.length) setTimeout(step, speed);
+      else setTimeout(function(){ done && done(); }, 180);
+    })();
+  }
+})();
+
+/* ---------------- kitty cursor_trail（位置由打字事件推送，rAF 不做布局查询） ---------------- */
+window.__trailPos = null;
+window.__trailTick = 0;
+
+(function(){
+  const cv = document.getElementById('trailcv');
+  if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext('2d', {alpha:true});
+  const N = 16, TR = 224, TG = 226, TB = 232;
+  let W=0, H=0, dpr=1;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.floor(W*dpr); cv.height = Math.floor(H*dpr);
+    cv.style.width = W+'px'; cv.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  let prev=null, cur=null, alpha=0, dirty=null;
+
+  function union(a,b){
+    const x0=Math.min(a.x,b.x), y0=Math.min(a.y,b.y);
+    const x1=Math.max(a.x+a.w,b.x+b.w), y1=Math.max(a.y+a.h,b.y+b.h);
+    return {x:x0-2, y:y0-2, w:(x1-x0)+4, h:(y1-y0)+4};
+  }
+
+  function frame(){
+    const p = window.__trailPos;
+    if (!document.getElementById('boot')){
+      if (dirty){ ctx.clearRect(dirty.x,dirty.y,dirty.w,dirty.h); dirty=null; }
+      return;
+    }
+    if (p){
+      if (!cur){ prev = p; cur = p; }
+      else if (Math.abs(p.x-cur.x) > 0.5 || Math.abs(p.y-cur.y) > 0.5){
+        prev = cur; cur = p; alpha = 1;
+      }
+    }
+    if (alpha > 0.02 && prev && cur){
+      const box = union(prev, cur);
+      if (dirty) ctx.clearRect(dirty.x,dirty.y,dirty.w,dirty.h);
+      ctx.clearRect(box.x, box.y, box.w, box.h);
+      ctx.fillStyle = 'rgba('+TR+','+TG+','+TB+','+(0.055*alpha).toFixed(3)+')';
+      for (let i=0;i<N;i++){
+        const t = (i+0.5)/N;
+        ctx.fillRect(prev.x+(cur.x-prev.x)*t, prev.y+(cur.y-prev.y)*t, cur.w, cur.h);
+      }
+      ctx.clearRect(cur.x, cur.y, cur.w, cur.h);
+      dirty = box;
+      alpha *= 0.82;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
+/* 打字时测一次光标位置（每次写字符一次，不是每帧） */
+function pushCursor(el){
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  if (r.width > 0) window.__trailPos = {x:r.left, y:r.top, w:r.width, h:r.height};
+}
+
+/* 初始化 */
+render();
 </script>
+
+<div id="psTpl" style="display:none"><span class="ps"><span class="cap-l"></span><span class="seg" style="background:#feb0d3;color:#521d3a">arch logicmokou</span><span class="arr" style="--prev:#feb0d3;--next:#f2bb99"></span><span class="seg" style="background:#f2bb99;color:#521d3a">~</span><span class="arr" style="--prev:#f2bb99;--next:#fdd9e7"></span><span class="arr" style="--prev:#fdd9e7;--next:#40373a"></span><span class="arr" style="--prev:#40373a;--next:#e0bdcb"></span><span class="arr" style="--prev:#e0bdcb;--next:#59404b"></span><span class="seg" style="background:#59404b;color:#eedfe3">__TIME__</span><span class="cap-r"></span><span class="chr">❯</span></span> <span id="bcmd"></span><span class="cur"></span></div>
 </body>
 </html>
