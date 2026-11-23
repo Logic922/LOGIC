@@ -389,6 +389,8 @@ function markBootDone(){
   bootDone = true;
   var b = document.getElementById('boot');
   if (b) b.remove();
+  pushRect(menuEl.querySelector('.item.focus'));
+  window.__trailJump = true;
 }
 
 function onKey(e){
@@ -555,6 +557,11 @@ window.__trailTick = 0;
     lastTs = ts;
     window.__tf = (window.__tf||0) + 1;
     const p = window.__trailPos;
+    if (p && window.__trailJump){
+      window.__trailJump = false;
+      prev = p; cur = p; alpha = 0;
+      if (dirty){ ctx.clearRect(0,0,W,H); dirty = null; }
+    }
     if (p){
       if (!cur){ prev = p; cur = p; }
       else if (Math.abs(p.x-cur.x) > 0.5 || Math.abs(p.y-cur.y) > 0.5){
@@ -599,6 +606,7 @@ function pushCursor(el){ pushRect(el); }
 
 /* 初始化 */
 render();
+window.__trailJump = true;
 </script>
 
 <div id="psTpl" style="display:none"><span class="pf"><span class="u">logicmokou</span><span class="at">@</span><span class="h">arch</span> <span class="pwd">~</span> <span class="sym">&gt;</span></span> <span id="bcmd"></span><span class="cur"></span></div>
