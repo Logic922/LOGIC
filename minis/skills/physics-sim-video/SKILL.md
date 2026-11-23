@@ -1,32 +1,52 @@
 ---
 name: physics-sim-video
-version: 1.0.0
-description: 在 iSH 上把物理题/物理过程做成带中文标注的模拟视频（MP4）。当用户说"做个模拟视频/动画演示/画个过程动画/讲一下这个运动过程"，或要求把力学题（碰撞、弹簧、斜面、圆周、多体相互作用、v-t 图）可视化时使用。内含离屏渲染工具包、编码流程、中文标注排版规范与物理准确性检查清单。
+version: 2.0.0
+description: 把物理题/物理过程做成可交互的**单文件 HTML 动画**（Canvas 2D，不交付视频）。当用户说"做个模拟/动画演示/画个过程动画/讲一下这个运动过程/把这个过程可视化"，或要求把力学题（碰撞、弹簧、斜面、圆周、多体相互作用、v-t 图）变成能播放的东西时使用。产出带播放/暂停/拖动/变速/关键帧跳转的控制条，聊天里点开即播。
 ---
 
-# 物理模拟视频（iSH / Pillow + ffmpeg）
+# 物理模拟动画（单文件 HTML）
 
-把物理过程做成 **960×620 左右的 MP4**，构图固定为：**上方动画舞台 + 左下 v-t 图 + 右侧结论面板**，
-关键帧停顿、0.5 倍速播放，让用户"看得清哪一刻发生了什么"。
+把物理过程做成 **960×620** 的 Canvas 动画，构图固定为：**上方动画舞台 + 左下 v-t 图 + 右侧结论面板**，
+关键帧自动停帧、0.5× 慢放，用户可暂停、拖动定位、跳到 t₁/t₂。
+
+**交付物只有 `.html`，不交付 MP4 / GIF。** HTML 能暂停回溯、矢量清晰、零编码等待、聊天里直接预览，
+用户改参数也只需改几行。旧的 Pillow + ffmpeg 流程归档在 `scripts/legacy-mp4/`，仅当用户明确要视频文件时才参考。
 
 ## 目录结构
 
-- `scripts/simkit.py` — 工具包：`Video`（逐帧收集+编码+自动清理）、`Cam`（世界坐标→像素）、
-  `arrow / spring / block / ground_line / title_bar / caption / vt_panel / note_lines`、`ft()` 字体。
-- `scripts/template_spring_collision.py` — 完整范例（可复制改写：换 state() 运动学即可）。
-  直接跑：`python3 scripts/template_spring_collision.py`。
+- `scripts/template_spring_collision.html` — **完整可跑范例，新题直接复制改写**。
+  三段结构：① 物理段（`CFG` / `state()` / `NOTES`）② 通用绘图工具
+  （`Cam / titleBar / groundLine / arrow / spring / block / vtPanel / noteLines`，旧 simkit 的 JS 对应物）
+  ③ 播放控制（播放/暂停/重播/变速/进度条/关键帧跳转/停帧，换题不用动）。
+- `scripts/legacy-mp4/` — 旧 Pillow 工具包与样例，默认不用。
 
 ## 标准流程
 
 1. **先解析式、后画图**。全程用解析解（而不是数值积分）求 x(t), v(t)，能自动保证精度与
    关键时刻（最大压缩、分离、最高点、落地）准确；数值积分则 dt ≤ 1e-4。
    单位一律取 **m=1, v=1**，图注写"（取 v=1）"。
-2. 定义 `state(t) -> (位置..., 速度...)`，把**分段**写清楚（接触前 / 相互作用中 / 分离后）。
-3. 用 `simkit` 逐帧绘制：`Video.add(img, hold=0.45)` 让关键时刻停顿；其余 hold=0。
-4. **0.5 倍速**：每帧推进的物理时间 = 0.5/30 s（≈78 帧拍完 2.6 s 物理过程）。
-5. `vid.encode("/var/minis/workspace/<名>.mp4")` —— 自动删临时帧，用户链接用
-   `[▶ 名称](minis://workspace/<名>.mp4)`（**GIF 在聊天里只会显示首帧，必须用 MP4**）。
-6. 抽 1–2 帧回看（`read_image`）确认排版无缺字方块、无溢出，再交付。
+2. 定义 `state(t) -> [位置..., 速度...]`，把**分段**写清楚（接触前 / 相互作用中 / 分离后）。
+   改 `CFG`（原长、k、质量、块宽、总时长、相机范围、v-t 纵轴范围）与 `NOTES` 结论面板。
+3. 复制模板改物理段，`draw()` 里的标注文字同步改（阶段提示、力矩/能量读数）。
+4. **自检**（必做，两步）：
+   - 语法：抽出 `<script>` 段 → `node --check`；
+   - 画面：`browser_use navigate minis://workspace/<名>.html`，
+     用 `execute_js` 把 `t` 设成 0 / T_MAX / T_SEP 各截一帧（`read_image` 看），
+     确认没有缺字形空框、文字被 v-t 卡片压住、物体跑出视野。
+5. 交付：`[▶ 模拟：<名>](minis://workspace/<名>.html)`，一句话说清关键结论。
+   手机端可直接点开，带控制条。
+
+## HTML 版的硬性要求（换题时必须保留）
+
+- **控制条齐全**：播放/暂停、重播、0.25×/0.5×/1× 变速、可拖动进度条、关键时刻跳转按钮。
+- **关键时刻自动停帧**（跨过 t₁/t₂ 停 0.5 s），并且能一键关闭。
+- **高 DPI**：`canvas.width = 逻辑宽 × min(devicePixelRatio, 2)`，绘制前 `setTransform(DPR,0,0,DPR,0,0)`；
+  CSS 用 `width:100%;height:auto`，手机自动缩放。
+- **单文件、零外部依赖**：字体只用系统栈（PingFang SC / Hiragino / YaHei / system-ui），
+  不引 CDN、不引外部 js/css，否则换设备就打不开。
+- **动画时间用真实经过时间**：`t += dt * speed`，`dt` 取 rAF 时长并夹到 ≤ 0.05 s，
+  绝不用"帧序号 × 固定步长"（掉帧会变慢动作或跳帧）。
+- 控件触控高度 ≥ 44 px，按钮文字 ≥ 15 px。
 
 ## 物理准确性检查清单（画错就白教了）
 
@@ -40,16 +60,23 @@ description: 在 iSH 上把物理题/物理过程做成带中文标注的模拟�
 
 ## 排版与字体（踩过的坑）
 
-- 中文字体：`/root/wqy.ttf`（文泉驿正黑，由 `apk add font-wqy-zenhei` + fontTools 从 ttc 导出）。
-  `simkit.ensure_font()` 会自动准备。
-- **文泉驿正黑没有 ✔ ✘ 字形，会渲染成空心方块** —— 判断对错用 `【对】/【错】`。
-- 画布 ≤ 960×620；顶部标题条高 44；正文 x 从 18 起，右侧数字用 `anchor="rm"`。
-- 公式里的 `mv²` 等上标在 TTF 里有字形，可直接写；`{:.2f}` 格式化后再拼字符串。
-- 结论面板行距 26px，第 8 行大约到 y=580，别超出画布。
+- **字体**：用系统栈 `"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif`，
+  Canvas 直接 `ctx.font = size + 'px ' + FONT`。不用 wqy.ttf、不装字体、不嵌 base64。
+- **缺字形风险仍在**：✔ ✘ ★ 之类在部分系统字体里没有 → 判断对错一律用 `【对】/【错】`；
+  箭头符号 `→ ← ↑ ↓` 系统字体有，可用。
+- **布局（960×620，改题也别动这套边界）**：
+  标题条高 44（深蓝底白字，x=18）；舞台地面 y=252；
+  阶段提示文字 x=18 / y=62，时间 y=96；右侧读数 `textAlign='right'` / x=W-18；
+  v-t 面板框 `[70,370,575,570]`（左边距留 50 给刻度，白卡片右缘 = x1+40 = 615）；
+  **结论面板从 x=650 起、行距 25、字号 13、最多 9 行**（第 9 行 y≈572）。
+  v-t 面板的 x1 一旦 > 580，白卡片就会压住结论面板的文字 —— 模板最初就踩过这个坑。
+- 结论面板 `NOTES` 用 `["小标题", "正文"]`，小标题缩进 72、正文缩进 14；长行宁可拆成两行，别挤出画布。
+- 数值统一 `toFixed(2)` 后拼字符串（`+0.50v` 这种带符号格式用 `fmt()`）。
 
-## 编码与清理
+## 交付与清理
 
-- ffmpeg 必须 `-loglevel error`（本环境不加会丢 stderr 或被噪声淹没）+ `-vf format=yuv420p`
-  + `-c:v libx264 -crf 20`，否则 iOS 播放器可能拒播。webm 编码器未装，不要用。
-- 帧目录固定 `/tmp/...`，`Video.encode()` 成功后自动删除；脚本里不要往 workspace 丢中间文件。
-- 交付物只留：`/var/minis/workspace/<名>.mp4`（必要时附生成脚本）。
+- 交付物只留：`/var/minis/workspace/<名>.html`（单文件；用户要源工程时可复制模板进去，但默认不附）。
+- 不留临时文件：调参脚本写 `/tmp/**`，交完删掉；不要往 workspace 丢中间帧或调试副本。
+  （HTML 版没有帧目录，这是相对 MP4 的净收益。）
+- 若用户**明确**要视频文件，才走 `scripts/legacy-mp4/`：Pillow 逐帧 + `ffmpeg -loglevel error
+  -vf format=yuv420p -c:v libx264 -crf 20`，临时帧放 `/tmp`，成功后删除。
