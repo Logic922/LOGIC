@@ -12,11 +12,11 @@
 
 /* shorin kitty 主题（matugen） */
 :root{
-  --bg:#101418; --fg:#e0e2e8; --dim:#8c9198; --faint:#5b636b;
-  --sel:#b8c8da; --selfg:#23323f;
-  --c0:#4c4c4c; --c1:#ac8a8c; --c2:#8aac8b; --c3:#aca98a;
-  --c4:#99ccfa; --c5:#ac8aac; --c6:#8aacab; --c7:#f0f0f0;
-  --c8:#8c9198; --c12:#a39ec4; --c14:#9ec3c4;
+  --bg:#0a1216; --fg:#d8e8ec; --dim:#7f99a2; --faint:#4c6570;
+  --sel:#a8d8e4; --selfg:#0b2731;
+  --c0:#0e1d23; --c1:#8fb6c4; --c2:#6fbfa8; --c3:#c9b87f;
+  --c4:#4aa8d8; --c5:#5ec8d8; --c6:#5ec8d8; --c7:#e8f3f6;
+  --c8:#7f99a2; --c12:#7fa8c8; --c14:#8fd6e0;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overscroll-behavior:none}
@@ -43,16 +43,12 @@ body{
      animation:blink 1.05s steps(1) infinite}
 @keyframes blink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
 
-/* ---------- starship powerline（照 shorin starship.toml） ---------- */
-.ps{display:inline-flex;align-items:center;height:17px;font-size:11px;line-height:17px;vertical-align:middle}
-.ps .cap-l{width:4px;height:17px;background:#feb0d3;border-radius:0 8px 8px 0}
-.ps .cap-r{width:4px;height:17px;background:#59404b;border-radius:8px 0 0 8px}
-.ps .seg{height:17px;padding:0 .8ch;display:flex;align-items:center;white-space:nowrap}
-.ps .arr{position:relative;width:7px;height:17px;background:var(--next)}
-.ps .arr::before{content:'';position:absolute;inset:0;background:var(--prev);
-  clip-path:polygon(0 0,100% 50%,0 100%)}
-.ps .chr{color:#521d3a;font-weight:700;margin-left:.6ch}
-.ps .sp{width:.6ch}
+/* ---------- 普通提示符 ---------- */
+.pf .u{color:var(--c6);font-weight:700}
+.pf .at{color:var(--faint)}
+.pf .h{color:var(--c4)}
+.pf .pwd{color:var(--c14)}
+.pf .sym{color:var(--faint)}
 
 /* ---------- 应用 ---------- */
 .app{
@@ -88,7 +84,7 @@ body{
   height:22px;line-height:22px;white-space:nowrap;
   color:var(--fg);padding-left:2ch;
 }
-.item .mk{width:2ch;color:var(--c6);font-weight:700}
+.item .mk{width:2ch;color:var(--c4);font-weight:700;font-size:13px}
 .item .ar{width:2ch;color:var(--faint)}
 .item .nm{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .item .cnt{color:var(--faint);margin-left:1.4ch;font-size:11px}
@@ -100,10 +96,9 @@ body{
 .item.leaf .desc{color:var(--dim);margin-left:2ch;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .item.focus{background:var(--sel);color:var(--selfg)}
 .item.focus .mk{color:var(--selfg)}
-.item.focus .ar{color:#41586b}
+.item.focus .ar{color:#3c5f6b}
 .item.focus .nm{color:var(--selfg);font-weight:700}
-.item.focus .cnt,.item.focus .meta,.item.focus .desc{color:#35505f}
-.item:hover:not(.focus){background:#1a222a}
+.item.focus .cnt,.item.focus .meta,.item.focus .desc{color:#2f4c56}
 
 /* 分隔线 + details */
 .rule{margin:2px 18px 0;color:#2a333c;overflow:hidden;white-space:nowrap}
@@ -189,7 +184,6 @@ const DB = [
     { n:'ring3', s:'17K', t:'dir', d:'圆环内三球的圆周运动，附第 (3) 问解法', u:'projects/教学模拟/圆环三球/anim.html' },
     { n:'ramp-hinge', s:'22K', t:'dir', d:'斜面、圆弧、动铰摆的衔接', u:'projects/教学模拟/斜面圆弧动铰摆.html' },
     { n:'pendulum', s:'24K', t:'dir', d:'单摆和动铰摆，参数随便拖', u:'projects/教学模拟/摆的沙盒.html' },
-    { n:'ring-collide', s:'5K', t:'dir', d:'圆环内的三球碰撞', u:'projects/教学模拟/圆环碰撞.html' },
     { n:'belt', s:'34K', t:'dir', d:'凹槽 A、滑块 B、传送带 C 的相对运动', u:'projects/教学模拟/凹槽传送带动画/index.html' },
     { n:'co2-meoh', s:'15K', t:'dir', d:'CO₂ 加氢制甲醇的分流与速率', u:'projects/教学模拟/CO2制甲醇演示/index.html' }
   ]},
@@ -266,6 +260,7 @@ function render(){
   }
   var app = document.querySelector('.app');
   if (app) app.scrollTop = 0;
+  pushRect(menuEl.querySelector('.item.focus'));
 }
 
 function curItem(){
@@ -319,6 +314,7 @@ function scrollToFocus(){
   }
   var app = document.querySelector('.app');
   if (app) app.scrollTop = 0;
+  pushRect(menuEl.querySelector('.item.focus'));
 }
 function paintSel(){
   var items = menuEl.querySelectorAll('.item');
@@ -331,6 +327,7 @@ function paintSel(){
   posEl.textContent = (focus+1) + '/' + flat.length;
   renderDetails();
   scrollToFocus();
+  pushRect(menuEl.querySelector('.item.focus'));
 }
 function moveFocus(d){
   focus = (focus + d + flat.length) % flat.length;
@@ -347,7 +344,8 @@ menuEl.addEventListener('click', function(e){
   var el = e.target.closest('.item');
   if (!el) return;
   focus = +el.dataset.i;
-  openItem();
+  paintSel();              // 先把高亮移过去，轨迹才会有
+  setTimeout(openItem, 90);
 });
 menuEl.addEventListener('mousemove', function(e){
   var el = e.target.closest('.item');
@@ -355,58 +353,36 @@ menuEl.addEventListener('mousemove', function(e){
   var i = +el.dataset.i;
   if (i === focus) return;
   focus = i;
-  var items = menuEl.querySelectorAll('.item');
-  for (var j=0;j<items.length;j++) items[j].classList.toggle('focus', j===i);
-  var mks = menuEl.querySelectorAll('.mk');
-  for (var k=0;k<mks.length;k++) mks[k].textContent = (k===i) ? '❯' : '';
-  posEl.textContent = (focus+1)+'/'+flat.length;
-  renderDetails();
+  paintSel();
 });
 menuEl.addEventListener('wheel', function(e){
   e.preventDefault();
   moveFocus(e.deltaY > 0 ? 1 : -1);
 }, {passive:false});
 
-/* 触摸：整行拖，监听挂 document（DOM 重建不会丢事件） */
+/* 触摸：只滚列表，按整行硬跳，不做跟手滚动 */
 const ROWH = 22;
-window.__t = {y:null, x:null, acc:0, in:false, err:null};
+let drag = null;
 
 document.addEventListener('touchstart', function(e){
-  try {
-    var t = e.touches[0], w = window.__t;
-    w.y = t.clientY; w.x = t.clientX; w.acc = 0;
-    w.in = menuEl.contains(e.target) || e.target === menuEl;
-  } catch(err){ window.__t.err = 'start:'+err.message; }
+  if (!menuEl.contains(e.target) && e.target !== menuEl) return;
+  var t = e.touches[0];
+  drag = { y: t.clientY, scroll: menuEl.scrollTop, rows: 0 };
 }, {passive:true});
 
 document.addEventListener('touchmove', function(e){
-  var w = window.__t;
-  if (w.y === null) return;
-  try {
-    var y = e.touches[0].clientY;
-    var dy = w.y - y;
-    w.y = y;
-    if (!w.in) return;
-    w.acc += dy;
-    var g = 0;
-    while (w.acc >= ROWH && g++ < 20){ moveFocus(1); w.acc -= ROWH; }
-    while (w.acc <= -ROWH && g++ < 20){ moveFocus(-1); w.acc += ROWH; }
-  } catch(err){ w.err = 'move:'+err.message; }
+  if (!drag) return;
+  var dy = drag.y - e.touches[0].clientY;
+  var rows = Math.trunc(dy / ROWH);
+  if (rows !== drag.rows){
+    drag.rows = rows;
+    var max = menuEl.scrollHeight - menuEl.clientHeight;
+    menuEl.scrollTop = Math.max(0, Math.min(max, drag.scroll + rows * ROWH));
+  }
 }, {passive:true});
 
-document.addEventListener('touchend', function(e){
-  var w = window.__t;
-  try {
-    if (w.x !== null && w.in){
-      var dx = e.changedTouches[0].clientX - w.x;
-      if (Math.abs(dx) > 60 && Math.abs(w.acc) < ROWH*2){
-        var base = flat[focus] ? flat[focus].g : 0;
-        jumpCat((base + (dx < 0 ? 1 : -1) + DB.length) % DB.length);
-      }
-    }
-  } catch(err){ w.err = 'end:'+err.message; }
-  w.y = null; w.x = null; w.acc = 0; w.in = false;
-}, {passive:true});
+document.addEventListener('touchend', function(){ drag = null; }, {passive:true});
+document.addEventListener('touchcancel', function(){ drag = null; }, {passive:true});
 
 /* ---------------- 键盘 ---------------- */
 let bootDone = false;
@@ -498,18 +474,18 @@ let skipBoot = null;
   ];
 
   LOG.forEach(function(row){
-    at(row[0], function(){
+    at(row[0]*1.7, function(){
       const p = line('', (row[2] ? '<span class="pend">'+row[1]+'</span>' : row[1]));
-      if (row[2]) setTimeout(function(){ if (!stopped) p.innerHTML = row[2]; }, row[3]);
+      if (row[2]) setTimeout(function(){ if (!stopped) p.innerHTML = row[2]; }, row[3]*1.7);
     });
   });
 
   /* agetty */
-  at(960, function(){
+  at(1700, function(){
     line('', '\nArch Linux 6.13.1-arch1-1 (tty1)');
     line('', '\narchlinux login: <span id="buser"></span><span class="cur"></span>');
-    type(document.getElementById('buser'), 'logicmokou', 45, function(){
-      at(120, function(){
+    type(document.getElementById('buser'), 'logicmokou', 70, function(){
+      at(200, function(){
         const c = boot.querySelector('.cur'); if (c) c.remove();
         const d = new Date(), p = n => String(n).padStart(2,'0');
         const w = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -517,12 +493,12 @@ let skipBoot = null;
         line('', 'Last login: ' + w[d.getDay()]+' '+m[d.getMonth()]+' '+p(d.getDate())+' '+
                   p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())+' on tty1');
 
-        at(90, function(){
+        at(160, function(){
           const ps = document.getElementById('psTpl').innerHTML;
           line('psline', ps.replace('__TIME__', p(d.getHours())+':'+p(d.getMinutes())));
           const cmd = boot.querySelector('#bcmd');
-          type(cmd, 'tui', 90, function(){
-            at(240, function(){ markBootDone(); });
+          type(cmd, 'tui', 130, function(){
+            at(420, function(){ markBootDone(); });
           });
         });
       });
@@ -539,7 +515,7 @@ let skipBoot = null;
       var cu = document.querySelector('#boot .cur');
       pushCursor(cu);
       if (i < text.length) setTimeout(step, speed);
-      else setTimeout(function(){ done && done(); }, 180);
+      else setTimeout(function(){ done && done(); }, 260);
     })();
   }
 })();
@@ -552,7 +528,7 @@ window.__trailTick = 0;
   const cv = document.getElementById('trailcv');
   if (!cv || !cv.getContext) return;
   const ctx = cv.getContext('2d', {alpha:true});
-  const N = 16, TR = 224, TG = 226, TB = 232;
+  const N = 16, TR = 94, TG = 200, TB = 216;
   let W=0, H=0, dpr=1;
 
   function resize(){
@@ -573,30 +549,41 @@ window.__trailTick = 0;
     return {x:x0-2, y:y0-2, w:(x1-x0)+4, h:(y1-y0)+4};
   }
 
-  function frame(){
+  let lastTs = 0;
+  function frame(ts){
+    if (!ts) ts = performance.now();
+    const dt = lastTs ? Math.min(ts - lastTs, 60) : 16.7;
+    lastTs = ts;
+    window.__tf = (window.__tf||0) + 1;
     const p = window.__trailPos;
-    if (!document.getElementById('boot')){
-      if (dirty){ ctx.clearRect(dirty.x,dirty.y,dirty.w,dirty.h); dirty=null; }
-      return;
-    }
     if (p){
       if (!cur){ prev = p; cur = p; }
       else if (Math.abs(p.x-cur.x) > 0.5 || Math.abs(p.y-cur.y) > 0.5){
         prev = cur; cur = p; alpha = 1;
       }
     }
-    if (alpha > 0.02 && prev && cur){
+    if (alpha > 0.008 && prev && cur){
+      /* 拖尾缓慢收缩到当前位置，而不是静止即消失 */
+      if (Math.abs(prev.y - cur.y) > 0.4 || Math.abs(prev.x - cur.x) > 0.4){
+        prev.x += (cur.x - prev.x) * 0.06;
+        prev.y += (cur.y - prev.y) * 0.06;
+        prev.w += (cur.w - prev.w) * 0.06;
+        prev.h += (cur.h - prev.h) * 0.06;
+      }
       const box = union(prev, cur);
-      if (dirty) ctx.clearRect(dirty.x,dirty.y,dirty.w,dirty.h);
-      ctx.clearRect(box.x, box.y, box.w, box.h);
-      ctx.fillStyle = 'rgba('+TR+','+TG+','+TB+','+(0.055*alpha).toFixed(3)+')';
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba('+TR+','+TG+','+TB+','+(0.032*alpha).toFixed(3)+')';
       for (let i=0;i<N;i++){
         const t = (i+0.5)/N;
         ctx.fillRect(prev.x+(cur.x-prev.x)*t, prev.y+(cur.y-prev.y)*t, cur.w, cur.h);
       }
       ctx.clearRect(cur.x, cur.y, cur.w, cur.h);
       dirty = box;
-      alpha *= 0.82;
+      alpha *= Math.pow(0.975, dt / 16.7);
+      window.__ta = alpha;
+    } else if (dirty){
+      ctx.clearRect(0, 0, W, H);
+      dirty = null;
     }
     requestAnimationFrame(frame);
   }
@@ -604,16 +591,17 @@ window.__trailTick = 0;
 })();
 
 /* 打字时测一次光标位置（每次写字符一次，不是每帧） */
-function pushCursor(el){
+function pushRect(el){
   if (!el) return;
   var r = el.getBoundingClientRect();
   if (r.width > 0) window.__trailPos = {x:r.left, y:r.top, w:r.width, h:r.height};
 }
+function pushCursor(el){ pushRect(el); }
 
 /* 初始化 */
 render();
 </script>
 
-<div id="psTpl" style="display:none"><span class="ps"><span class="cap-l"></span><span class="seg" style="background:#feb0d3;color:#521d3a">arch logicmokou</span><span class="arr" style="--prev:#feb0d3;--next:#f2bb99"></span><span class="seg" style="background:#f2bb99;color:#521d3a">~</span><span class="arr" style="--prev:#f2bb99;--next:#fdd9e7"></span><span class="arr" style="--prev:#fdd9e7;--next:#40373a"></span><span class="arr" style="--prev:#40373a;--next:#e0bdcb"></span><span class="arr" style="--prev:#e0bdcb;--next:#59404b"></span><span class="seg" style="background:#59404b;color:#eedfe3">__TIME__</span><span class="cap-r"></span><span class="chr">❯</span></span> <span id="bcmd"></span><span class="cur"></span></div>
+<div id="psTpl" style="display:none"><span class="pf"><span class="u">logicmokou</span><span class="at">@</span><span class="h">arch</span> <span class="pwd">~</span> <span class="sym">&gt;</span></span> <span id="bcmd"></span><span class="cur"></span></div>
 </body>
 </html>
