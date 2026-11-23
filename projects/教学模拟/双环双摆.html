@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>双环–双摆 · 约束动力学模拟</title>
+<style>
+  :root{
+    --ink:#e8eaf2; --dim:#8b93a7; --faint:#5d6478; --line:#2c3140; --card:#171a24;
+    --cyan:#38e0d0; --blue:#5ab0ff; --amber:#ffb347; --orange:#ff7a59;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#0b0d13;color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;}
+  .wrap{max-width:1020px;margin:0 auto;padding:10px 10px 26px;}
+  canvas{display:block;width:100%;height:auto;border-radius:14px;background:#101319;
+    border:1px solid #232a3b;box-shadow:0 4px 22px rgba(0,0,0,.5);}
+  .panel{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:12px 13px;}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row+.row{margin-top:10px}
+  button{font:inherit;font-size:15px;padding:9px 16px;border-radius:10px;cursor:pointer;
+    border:1px solid #333b4f;background:#232838;color:var(--ink);transition:.15s;}
+  button:hover{background:#2b3243}
+  button:active{transform:scale(.97)}
+  button.primary{background:#1f6feb;border-color:#2f7ff5;color:#fff;min-width:96px;font-weight:600}
+  button.on{background:#123a3a;border-color:#2b6f6a;color:#4fe6d6}
+  .seg{display:inline-flex;border:1px solid #333b4f;border-radius:10px;overflow:hidden}
+  .seg button{border:0;border-radius:0;padding:9px 11px;background:#1b1f2b;font-size:14px}
+  .seg button+button{border-left:1px solid #333b4f}
+  .seg button.on{background:#1f6feb;color:#fff}
+  .time{font-variant-numeric:tabular-nums;font-size:14px;color:var(--dim);
+    min-width:104px;text-align:right;margin-left:auto}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:110px;height:28px;
+    background:transparent}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2c3346}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;
+    margin-top:-8px;border-radius:50%;background:#4d9dff;border:2px solid #0b0d13;
+    box-shadow:0 1px 6px rgba(0,0,0,.6)}
+  .lab{font-size:13.5px;color:var(--dim);white-space:nowrap}
+  .val{font-variant-numeric:tabular-nums;font-size:15px;color:var(--cyan);font-weight:600;
+    min-width:52px;text-align:right}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+  .st{background:#1c2130;border:1px solid #262d3f;border-radius:9px;padding:6px 8px}
+  .st .k{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden}
+  .st .v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+  @media (max-width:430px){ .stats{grid-template-columns:repeat(4,1fr)} .st .k{font-size:9.5px} .st .v{font-size:12.5px} }
+  .hint{font-size:12px;color:#6f7789;line-height:1.65;margin-top:8px}
+  .log{margin-top:8px;font-size:12.5px;color:var(--dim);max-height:120px;overflow-y:auto;
+    font-variant-numeric:tabular-nums;line-height:1.7}
+  .log b{font-weight:600}
+  .log .bd{color:#ffb347}
+  .log .ac{color:#ff7a59}
+  @media (max-width:560px){ .hint{display:none} button{padding:9px 12px} .log{max-height:96px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="stage"></canvas>
+
+  <div class="panel" style="margin-top:10px">
+    <div class="stats" id="stats">
+      <div class="st"><div class="k">v_B 水平</div><div class="v" id="sVB" style="color:#5ab0ff">0.00</div></div>
+      <div class="st"><div class="k">v_A 环</div><div class="v" id="sVA" style="color:#38e0d0">0.00</div></div>
+      <div class="st"><div class="k">v_C = v_D</div><div class="v" id="sVC" style="color:#ff7a59">0.00</div></div>
+      <div class="st"><div class="k">θ_B</div><div class="v" id="sTh" style="color:#8b93a7">0.0°</div></div>
+      <div class="st"><div class="k">水平动量 p</div><div class="v" id="sP" style="color:#8b93a7">0.000</div></div>
+      <div class="st"><div class="k">机械能 E</div><div class="v" id="sE" style="color:#8b93a7">0.000</div></div>
+      <div class="st"><div class="k">B–D 碰撞</div><div class="v" id="sNBD" style="color:#ff7a59">0</div></div>
+      <div class="st"><div class="k">A–C 碰撞</div><div class="v" id="sNAC" style="color:#ffb347">0</div></div>
+    </div>
+    <canvas id="vt" height="150"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <button id="btnPlay" class="primary">▶ 播放</button>
+      <button id="btnReset">↺ 重播</button>
+      <div class="seg" id="segSpeed">
+        <button data-sp="0.25">0.25×</button>
+        <button data-sp="0.5" class="on">0.5×</button>
+        <button data-sp="1">1×</button>
+        <button data-sp="2">2×</button>
+      </div>
+      <span class="time" id="tlabel">t = 0.00 s</span>
+    </div>
+    <div class="row">
+      <input type="range" id="seek" min="0" max="16" step="0.001" value="0">
+    </div>
+    <div class="row">
+      <span class="lab">质量比 M / m</span>
+      <input type="range" id="ratio" min="0.2" max="8" step="0.05" value="3">
+      <span class="val" id="ratioVal">3.00</span>
+    </div>
+    <div class="row">
+      <span class="lab">初速度 v₀</span>
+      <input type="range" id="v0" min="0.5" max="2.5" step="0.05" value="1">
+      <span class="val" id="v0Val">1.00</span>
+      <button id="btnRing" class="on">环 A–C：计入</button>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="hint">
+      拉格朗日约束方程 + RK4（Δt = 2×10⁻⁴ s），碰撞用事件定位、恢复系数 1 的冲量法求解。
+      环 C 质量不计 ⇒ 绳 CD 恒竖直、球 D 水平匀速；环 A–C 的冲量经无质量环 C 全部传给 D。
+      两绳等长且竖直 ⇒ A、C 的间距恒等于 B、D 的间距，环必须先于球接触（环小、球大）。
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+
+/* =====================================================================
+   1. 物理内核
+   广义坐标：xA（环 A）、θ（B 相对竖直的摆角）、xC（环 C）
+   状态 y = [xA, θ, ẋA, θ̇, xC, ẋC]
+   ① 环 A(2m) + 绳 L + 球 B(m)：二自由度约束动力学
+   ② 环 C(0)  + 绳 L + 球 D(M)：C 无质量 ⇒ 绳恒竖直，D 水平匀速
+   ===================================================================== */
+const CFG = {
+  L: 1.0, g: 9.8, m: 1.0,
+  RB: 0.07,           // 球半径（几何接触判定）
+  RR: 0.02,           // 环半径
+  T_END: 16.0,
+  D0: 2.2             // C 相对 A 的初始间距（单位 L）
+};
+
+function rk4(y, h) {
+  const L = CFG.L, g = CFG.g;
+  const f = (st, out) => {
+    const s = Math.sin(st[1]), c = Math.cos(st[1]);
+    const den = 3 - c * c;                 // = 3 − cos²θ > 0，无奇点
+    const om2 = st[3] * st[3];
+    out[0] = st[2];
+    out[1] = st[3];
+    out[2] = (L * om2 * s + g * c * s) / den;
+    out[3] = -(3 * g * s + L * om2 * c * s) / (L * den);
+    out[4] = st[5];
+    out[5] = 0;
+  };
+  const k1 = [0,0,0,0,0,0], k2 = [0,0,0,0,0,0], k3 = [0,0,0,0,0,0], k4 = [0,0,0,0,0,0];
+  const tmp = [0,0,0,0,0,0];
+  f(y, k1);
+  for (let i = 0; i < 6; i++) tmp[i] = y[i] + 0.5 * h * k1[i];
+  f(tmp, k2);
+  for (let i = 0; i < 6; i++) tmp[i] = y[i] + 0.5 * h * k2[i];
+  f(tmp, k3);
+  for (let i = 0; i < 6; i++) tmp[i] = y[i] + h * k3[i];
+  f(tmp, k4);
+  const out = new Array(6);
+  for (let i = 0; i < 6; i++)
+    out[i] = y[i] + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  return out;
+}
+
+function ballGap(y) {
+  const dx = y[0] + CFG.L * Math.sin(y[1]) - y[4];
+  const dy = CFG.L - CFG.L * Math.cos(y[1]);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function momentum(y, M) {
+  return 3 * CFG.m * y[2] + CFG.m * CFG.L * y[3] * Math.cos(y[1]) + M * y[5];
+}
+function energy(y, M) {
+  const m = CFG.m, L = CFG.L, g = CFG.g;
+  return 1.5 * m * y[2] * y[2]
+       + m * L * y[2] * y[3] * Math.cos(y[1])
+       + 0.5 * m * L * L * y[3] * y[3]
+       + 0.5 * M * y[5] * y[5]
+       - m * g * L * Math.cos(y[1]) - M * g * L;
+}
+
+/* --- 碰撞：B–D（球–球弹性，冲量沿水平方向） ---
+   冲量 K 作用在 B 的广义坐标上：Q_x = K，Q_θ = K·L·cosθ
+   ⇒ ΔẋA = (K/m)(1−c²)/(3−c²)，L·Δθ̇ = (K/m)·2c/(3−c²)
+   θ=0 时退化为标准一维结果（A 不动、Δ(Lθ̇) = K/m） */
+function collideBD(y, M) {
+  const m = CFG.m, L = CFG.L, c = Math.cos(y[1]);
+  const vB = y[2] + L * y[3] * c, vD = y[5];
+  const den = 3 - c * c;
+  const comp = (1 + c * c) / (m * den) + 1 / M;
+  const K = -2 * (vB - vD) / comp;
+  const u = (K / m) * (1 - c * c) / den;
+  const w = (K / m) * 2 * c / den;
+  const nA = y[2] + u, nom = y[3] + w / L, nD = y[5] - K / M;
+  return { y: [y[0], y[1], nA, nom, y[4], nD],
+           vB: nA + L * nom * c, vD: nD, vB0: vB, vD0: vD };
+}
+
+/* --- 碰撞：A–C（环–环弹性；环 C 无质量，冲量经 C 全部传给 D） --- */
+function collideAC(y, M) {
+  const m = CFG.m, L = CFG.L, c = Math.cos(y[1]);
+  const Meff = m * (3 - c * c);           // A 侧等效惯性质量（θ=0 时 = 2m）
+  const vA = y[2], vC = y[5];
+  const nA = ((Meff - M) * vA + 2 * M * vC) / (Meff + M);
+  const nC = ((M - Meff) * vC + 2 * Meff * vA) / (Meff + M);
+  const om = y[3] - (nA - vA) * c / L;
+  return { y: [y[0], y[1], nA, om, y[4], nC],
+           vA: nA, vC: nC, vA0: vA, vC0: vC, Meff };
+}
+
+/* --- 预计算整条轨迹 --- */
+function simulate(opts) {
+  const ratio = opts.ratio, v0 = opts.v0, ringOn = opts.ringOn;
+  const M = CFG.m * ratio;
+  const h = 2e-4, sampleEvery = 10;       // 每 2 ms 存一帧
+  let y = [0, 0, 0, 0, CFG.D0 * CFG.L, -v0];
+  let t = 0, step = 0;
+  const frames = [], events = [];
+  const P0 = momentum(y, M), E0 = energy(y, M);
+  let dP = 0, dE = 0;
+  frames.push([t, y[0], y[1], y[2], y[3], y[4], y[5]]);
+
+  while (t < CFG.T_END - 1e-12) {
+    const yp = y;
+    y = rk4(y, h);
+    t += h; step++;
+
+    const g0 = ballGap(yp) - 2 * CFG.RB, g1 = ballGap(y) - 2 * CFG.RB;
+    if (g0 > 0 && g1 <= 0) {
+      const f = g0 / (g0 - g1);
+      const yh = yp.map((v, i) => v + f * (y[i] - v));
+      const r = collideBD(yh, M);
+      y = r.y;
+      events.push({ t, type: 'BD', th: yh[1], vB: r.vB, vD: r.vD, vB0: r.vB0, vD0: r.vD0 });
+    }
+    if (ringOn) {
+      const a0 = Math.abs(yp[0] - yp[4]) - 2 * CFG.RR;
+      const a1 = Math.abs(y[0] - y[4]) - 2 * CFG.RR;
+      if (a0 > 0 && a1 <= 0) {
+        const f = a0 / (a0 - a1);
+        const yh = yp.map((v, i) => v + f * (y[i] - v));
+        const r = collideAC(yh, M);
+        y = r.y;
+        events.push({ t, type: 'AC', th: yh[1], vA: r.vA, vC: r.vC,
+                      vA0: r.vA0, vC0: r.vC0, Meff: r.Meff });
+      }
+    }
+    const dpp = Math.abs(momentum(y, M) - P0) / (Math.abs(P0) + 1e-12);
+    const dee = Math.abs(energy(y, M) - E0) / (Math.abs(E0) + 1e-12);
+    if (dpp > dP) dP = dpp;
+    if (dee > dE) dE = dee;
+    if (step % sampleEvery === 0) frames.push([t, y[0], y[1], y[2], y[3], y[4], y[5]]);
+  }
+  return { frames, events, M, ratio, v0, ringOn, P0, E0, dP, dE, dtSample: sampleEvery * h };
+}
+
+/* =====================================================================
+   2. 绘图（响应式：画布逻辑尺寸 = CSS 像素，手机上文字不缩水）
+   ===================================================================== */
+const FONT = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif';
+const COL = {
+  a: '#38e0d0', b: '#5ab0ff', c: '#ffb347', d: '#ff7a59',
+  ink: '#e8eaf2', dim: '#8b93a7', faint: '#4d5468',
+  rod: '#5b6380', rodHi: '#98a1bf',
+  bg: '#101319', card: '#171a24', line: '#2a3143'
+};
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d');
+const vcv = document.getElementById('vt');
+const vctx = vcv.getContext('2d');
+
+let CW = 360, CH = 224;
+
+function setupCanvas() {
+  const wrapW = document.querySelector('.wrap').clientWidth || 370;
+  CW = Math.max(300, Math.min(1000, wrapW - 20));
+  CH = Math.round(CW * 0.62);
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  vcv.width = Math.round(CW * DPR); vcv.height = Math.round(150 * DPR);
+}
+
+let SIM = null, tCur = 0, playing = false, speed = 0.5;
+const cam = { cx: 0, scale: 100, rodY: 60 };
+
+function txt(c, s, x, y, size, color, align, weight) {
+  c.font = (weight ? weight + ' ' : '') + size + 'px ' + FONT;
+  c.fillStyle = color;
+  c.textAlign = align || 'left';
+  c.textBaseline = 'middle';
+  c.fillText(s, x, y);
+}
+
+function stateAt(t) {
+  const fr = SIM.frames, dt = SIM.dtSample, n = fr.length;
+  let i = Math.floor(t / dt);
+  if (i < 0) i = 0;
+  if (i > n - 2) i = n - 2;
+  const a = fr[i], b = fr[i + 1];
+  const f = Math.max(0, Math.min(1, (t - a[0]) / ((b[0] - a[0]) || 1)));
+  const out = new Array(a.length);
+  for (let k = 0; k < a.length; k++) out[k] = a[k] + f * (b[k] - a[k]);
+  return out;
+}
+
+function arrowH(c, x, y, v, color, k) {
+  if (Math.abs(v) < 0.05) return;
+  const ex = x + v * k, sgn = v > 0 ? 1 : -1;
+  c.strokeStyle = color; c.lineWidth = 2.6; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x, y); c.lineTo(ex - 6 * sgn, y); c.stroke();
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(ex, y); c.lineTo(ex - 9 * sgn, y - 4.6); c.lineTo(ex - 9 * sgn, y + 4.6);
+  c.closePath(); c.fill();
+}
+
+function draw(t) {
+  const s = stateAt(t);
+  const xA = s[1], th = s[2], vA = s[3], om = s[4], xC = s[5], vC = s[6];
+  const L = CFG.L;
+  const xB = xA + L * Math.sin(th), yB = -L * Math.cos(th);
+
+  const topH = 30;
+  const span = Math.abs(xA - xC);
+  const viewW = Math.max(3.6, span + 1.7);
+  cam.rodY = topH + (CH - topH) * 0.24;
+  const byH = (CH - cam.rodY - 22) / L;
+  cam.scale = Math.min(CW / viewW, byH);
+  cam.cx = (xA + xC) / 2;
+
+  const X = x => CW / 2 + (x - cam.cx) * cam.scale;
+  const ry = cam.rodY;
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, CW, CH);
+
+  // 细微网格
+  ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 1;
+  for (let gx = (X(0) % 40); gx < CW; gx += 40) {
+    ctx.beginPath(); ctx.moveTo(gx, topH); ctx.lineTo(gx, CH); ctx.stroke();
+  }
+  for (let gy = ry; gy < CH; gy += 40) {
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(CW, gy); ctx.stroke();
+  }
+
+  // 顶部信息条
+  ctx.fillStyle = '#1a2030'; ctx.fillRect(0, 0, CW, topH);
+  txt(ctx, 't = ' + t.toFixed(2) + ' s', 10, topH / 2, 12.5, COL.ink, 'left', '600');
+  txt(ctx, 'M/m ' + SIM.ratio.toFixed(2) + ' · v₀ ' + SIM.v0.toFixed(2),
+      CW - 10, topH / 2, 11.5, COL.dim, 'right');
+
+  // 状态
+  const evs = SIM.events;
+  const last = evs.filter(e => e.t <= t + 1e-9).pop();
+  let msg = '', mcol = COL.dim;
+  if (!evs.length || t < evs[0].t) { msg = 'D 匀速接近 B'; }
+  else if (last && t - last.t < 0.16) {
+    msg = last.type === 'BD' ? '球 B–D 碰撞' : '环 A–C 碰撞';
+    mcol = last.type === 'BD' ? COL.d : COL.c;
+  } else {
+    const nBD = evs.filter(e => e.type === 'BD' && e.t <= t).length;
+    const nAC = evs.filter(e => e.type === 'AC' && e.t <= t).length;
+    msg = 'B 摆动中 · B–D ' + nBD + ' 次 / A–C ' + nAC + ' 次';
+  }
+  txt(ctx, msg, CW / 2, CH - 13, 11.5, mcol, 'center', mcol === COL.dim ? '' : '600');
+
+  // 杆
+  const rg = ctx.createLinearGradient(0, ry - 4, 0, ry + 4);
+  rg.addColorStop(0, COL.rodHi); rg.addColorStop(0.5, COL.rod); rg.addColorStop(1, '#394055');
+  ctx.fillStyle = rg;
+  ctx.fillRect(-4, ry - 4, CW + 8, 8);
+
+  const pA = X(xA), pC = X(xC), pB = X(xB), pD = X(xC);
+  const yBp = ry - yB * cam.scale, yDp = ry + L * cam.scale;
+  const rBall = Math.max(7, CFG.RB * cam.scale * 1.7);
+  const rRing = Math.max(4.5, CFG.RR * cam.scale * 3.2);
+
+  // 竖直参考线
+  ctx.setLineDash([2, 5]); ctx.strokeStyle = 'rgba(255,255,255,.055)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pA, ry); ctx.lineTo(pA, ry + L * cam.scale); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pC, ry); ctx.lineTo(pC, ry + L * cam.scale); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 绳
+  ctx.strokeStyle = 'rgba(205,215,240,.55)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(pA, ry); ctx.lineTo(pB, yBp); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pC, ry); ctx.lineTo(pD, yDp); ctx.stroke();
+
+  // 环
+  function ring(x, color, label, side, halo) {
+    if (halo) {                              // 环 A 质量大：外圈淡晕，便于与 C 区分
+      ctx.beginPath(); ctx.arc(x, ry, rRing * 1.55, 0, 6.2832);
+      ctx.strokeStyle = color; ctx.globalAlpha = .22; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.beginPath(); ctx.arc(x, ry, rRing, 0, 6.2832);
+    ctx.fillStyle = '#0b0e14'; ctx.fill();
+    ctx.lineWidth = 2.4; ctx.strokeStyle = color; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, ry, rRing * 0.42, 0, 6.2832);
+    ctx.fillStyle = color; ctx.globalAlpha = .4; ctx.fill(); ctx.globalAlpha = 1;
+    txt(ctx, label, x + side * (rRing + 6), ry - rRing - 7, 11.5, color,
+        side > 0 ? 'left' : 'right', '600');
+  }
+  ring(pA, COL.a, 'A', -1, true);
+  ring(pC, COL.c, 'C', 1, false);
+
+  // 球
+  function ball(x, y, color, label, r) {
+    const g = ctx.createRadialGradient(x - r * .35, y - r * .4, r * .12, x, y, r);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(.3, color); g.addColorStop(1, color);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.stroke();
+    txt(ctx, label, x, y + .5, Math.max(8, r * 0.95), '#0b0d13', 'center', '700');
+  }
+  ball(pB, yBp, COL.b, 'B', rBall);
+  ball(pD, yDp, COL.d, 'D', rBall);
+
+  // 速度矢量
+  const k = 34 / Math.max(1, SIM.v0);
+  const vBx = vA + L * om * Math.cos(th);
+  arrowH(ctx, pB, yBp - rBall - 11, vBx, COL.b, k);
+  arrowH(ctx, pD, yDp - rBall - 11, vC, COL.d, k);
+  if (Math.abs(vA) > 0.1) arrowH(ctx, pA, ry - rRing - 24, vA, COL.a, k);
+
+  // 碰撞闪光
+  for (const e of evs) {
+    const d = t - e.t;
+    if (d < 0 || d > 0.4) continue;
+    const kk = 1 - d / 0.4;
+    ctx.globalAlpha = kk * .9;
+    ctx.strokeStyle = e.type === 'BD' ? COL.d : COL.c;
+    ctx.lineWidth = 2;
+    const cx = e.type === 'BD' ? pB : pA;
+    const cy = e.type === 'BD' ? yBp : ry;
+    ctx.beginPath(); ctx.arc(cx, cy, 7 + (1 - kk) * 30, 0, 6.2832); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- 速度—时间图 ---------- */
+function drawVT(t) {
+  const W = CW, H = 150;
+  const x0 = 34, y0 = 20, x1 = W - 8, y1 = H - 24;
+  vctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  vctx.clearRect(0, 0, W, H);
+  vctx.fillStyle = COL.card; vctx.fillRect(0, 0, W, H);
+
+  txt(vctx, '水平速度 — 时间', 8, 11, 11, COL.dim, 'left', '600');
+
+  const T = CFG.T_END;
+  const vmax = Math.max(1.1, SIM.v0 * 1.65);
+  const gx = tt => x0 + (tt / T) * (x1 - x0);
+  const gy = v => (y0 + y1) / 2 - v / vmax * ((y1 - y0) / 2);
+
+  vctx.strokeStyle = COL.line; vctx.lineWidth = 1;
+  const stepv = vmax > 2.4 ? 1 : 0.5;
+  for (let v = -Math.ceil(vmax / stepv) * stepv; v <= vmax + 1e-9; v += stepv) {
+    vctx.globalAlpha = Math.abs(v) < 1e-9 ? 0 : 1;
+    vctx.beginPath(); vctx.moveTo(x0, gy(v)); vctx.lineTo(x1, gy(v)); vctx.stroke();
+    vctx.globalAlpha = 1;
+    txt(vctx, (v > 0 ? '+' : '') + v.toFixed(1).replace('.0', ''), x0 - 4, gy(v), 9.5,
+        COL.faint, 'right');
+  }
+  vctx.strokeStyle = '#3d4459'; vctx.lineWidth = 1.2;
+  vctx.beginPath(); vctx.moveTo(x0, gy(0)); vctx.lineTo(x1, gy(0)); vctx.stroke();
+
+  // 时间网格
+  vctx.strokeStyle = 'rgba(255,255,255,.045)'; vctx.lineWidth = 1;
+  for (let tt = 0; tt <= T + 1e-9; tt += 2) {
+    vctx.beginPath(); vctx.moveTo(gx(tt), y0 - 4); vctx.lineTo(gx(tt), y1); vctx.stroke();
+  }
+
+  // 事件竖线
+  for (const e of SIM.events) {
+    vctx.setLineDash([2, 3]);
+    vctx.strokeStyle = e.type === 'BD' ? 'rgba(255,122,89,.45)' : 'rgba(255,179,71,.45)';
+    vctx.lineWidth = 1;
+    vctx.beginPath(); vctx.moveTo(gx(e.t), y0 - 4); vctx.lineTo(gx(e.t), y1); vctx.stroke();
+    vctx.setLineDash([]);
+  }
+
+  const N = Math.min(400, Math.max(160, Math.round(W)));
+  const curves = [
+    { col: COL.a, f: tt => stateAt(tt)[3], lab: 'v_A' },
+    { col: COL.b, f: tt => { const q = stateAt(tt); return q[3] + Math.cos(q[2]) * q[4]; }, lab: 'v_B' },
+    { col: COL.d, f: tt => stateAt(tt)[6], lab: 'v_C=v_D' }
+  ];
+  for (const cr of curves) {
+    vctx.strokeStyle = cr.col; vctx.lineWidth = 1.8;
+    vctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const tt = T * i / N;
+      const xx = gx(tt), yy = gy(cr.f(tt));
+      i ? vctx.lineTo(xx, yy) : vctx.moveTo(xx, yy);
+    }
+    vctx.stroke();
+  }
+
+  // 游标
+  vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1.2;
+  vctx.beginPath(); vctx.moveTo(gx(t), y0 - 5); vctx.lineTo(gx(t), y1); vctx.stroke();
+  for (const cr of curves) {
+    vctx.fillStyle = cr.col;
+    vctx.beginPath(); vctx.arc(gx(t), gy(cr.f(t)), 3, 0, 6.2832); vctx.fill();
+  }
+
+  // 图例
+  let lx = x0;
+  for (const cr of curves) {
+    vctx.strokeStyle = cr.col; vctx.lineWidth = 2.2;
+    vctx.beginPath(); vctx.moveTo(lx, y1 + 13); vctx.lineTo(lx + 14, y1 + 13); vctx.stroke();
+    txt(vctx, cr.lab, lx + 19, y1 + 13, 10, cr.col);
+    lx += 14 + 19 + vctx.measureText(cr.lab).width + 14;
+  }
+  txt(vctx, 't = 0 → ' + T + ' s', W - 8, y1 + 13, 9.5, COL.faint, 'right');
+}
+
+/* ---------- DOM 读数 ---------- */
+const $ = id => document.getElementById(id);
+let lastStatT = -1;
+function updateStats(t) {
+  if (Math.abs(t - lastStatT) < 0.008) return;
+  lastStatT = t;
+  const s = stateAt(t);
+  const M = SIM.M, m = CFG.m, L = CFG.L;
+  const vBx = s[3] + L * s[4] * Math.cos(s[2]);
+  const P = 3 * m * s[3] + m * L * s[4] * Math.cos(s[2]) + M * s[6];
+  const E = 1.5 * m * s[3] ** 2 + m * L * s[3] * s[4] * Math.cos(s[2])
+          + 0.5 * m * L * L * s[4] ** 2 + 0.5 * M * s[6] ** 2
+          - m * CFG.g * L * Math.cos(s[2]) - M * CFG.g * L;
+  const f2 = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+  $('sVB').textContent = f2(vBx);
+  $('sVA').textContent = f2(s[3]);
+  $('sVC').textContent = f2(s[6]);
+  $('sTh').textContent = (s[2] * 180 / Math.PI).toFixed(1) + '°';
+  $('sP').textContent = P.toFixed(3);
+  $('sE').textContent = E.toFixed(2);
+  $('sNBD').textContent = SIM.events.filter(e => e.type === 'BD' && e.t <= t).length;
+  $('sNAC').textContent = SIM.events.filter(e => e.type === 'AC' && e.t <= t).length;
+}
+
+/* =====================================================================
+   3. 交互与播放
+   ===================================================================== */
+const btnPlay = $('btnPlay'), seek = $('seek'), tlabel = $('tlabel'), logEl = $('log');
+let curOpts = { ratio: 3, v0: 1, ringOn: true };
+let lastNow = 0;
+
+function renderLog() {
+  if (!SIM.events.length) {
+    logEl.innerHTML = '<span style="color:#6f7789">本次参数下没有发生碰撞。</span>';
+    return;
+  }
+  let html = '';
+  for (const e of SIM.events) {
+    if (e.type === 'BD') {
+      html += '<div class="bd">t=' + e.t.toFixed(3) + ' s　<b>球 B–D 弹性碰撞</b>　' +
+        'v_B ' + fmt(e.vB0) + ' → ' + fmt(e.vB) + '　v_D ' + fmt(e.vD0) + ' → ' + fmt(e.vD) + '</div>';
+    } else {
+      html += '<div class="ac">t=' + e.t.toFixed(3) + ' s　<b>环 A–C 弹性碰撞</b>　' +
+        'v_A ' + fmt(e.vA0) + ' → ' + fmt(e.vA) + '　v_C ' + fmt(e.vC0) + ' → ' + fmt(e.vC) +
+        '　<span style="color:#6f7789">(A 侧等效 ' + (e.Meff / CFG.m).toFixed(2) + 'm)</span></div>';
+    }
+  }
+  logEl.innerHTML = html;
+}
+function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+
+function rebuild(reset) {
+  SIM = simulate({ ratio: curOpts.ratio, v0: curOpts.v0, ringOn: curOpts.ringOn });
+  if (reset) { tCur = 0; seek.value = 0; }
+  tCur = Math.min(tCur, CFG.T_END);
+  renderLog();
+  redraw();
+}
+
+function redraw() {
+  draw(tCur);
+  drawVT(tCur);
+  updateStats(tCur);
+  tlabel.textContent = 't = ' + tCur.toFixed(2) + ' s';
+}
+
+function setPlaying(v) {
+  playing = v;
+  btnPlay.textContent = v ? '❚❚ 暂停' : '▶ 播放';
+  if (v) { lastNow = 0; requestAnimationFrame(loop); }
+}
+
+function loop(now) {
+  if (!lastNow) lastNow = now;
+  const dt = Math.min((now - lastNow) / 1000, 0.05);
+  lastNow = now;
+  if (playing) {
+    tCur += dt * speed;
+    if (tCur >= CFG.T_END) { tCur = CFG.T_END; setPlaying(false); }
+  }
+  draw(tCur);
+  if (playing) drawVT(tCur);
+  updateStats(tCur);
+  seek.value = tCur;
+  tlabel.textContent = 't = ' + tCur.toFixed(2) + ' s';
+  if (playing) requestAnimationFrame(loop);
+}
+
+btnPlay.onclick = () => {
+  if (!playing && tCur >= CFG.T_END - 1e-6) { tCur = 0; seek.value = 0; }
+  setPlaying(!playing);
+};
+$('btnReset').onclick = () => {
+  tCur = 0; seek.value = 0; redraw();
+  setPlaying(true);
+};
+document.querySelectorAll('#segSpeed button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#segSpeed button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    speed = parseFloat(b.dataset.sp);
+  };
+});
+seek.oninput = () => { tCur = parseFloat(seek.value); redraw(); };
+
+let debounceTimer = null;
+function scheduleRebuild() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => rebuild(true), 90);
+}
+$('ratio').oninput = e => {
+  curOpts.ratio = parseFloat(e.target.value);
+  $('ratioVal').textContent = curOpts.ratio.toFixed(2);
+  scheduleRebuild();
+};
+$('v0').oninput = e => {
+  curOpts.v0 = parseFloat(e.target.value);
+  $('v0Val').textContent = curOpts.v0.toFixed(2);
+  scheduleRebuild();
+};
+$('btnRing').onclick = e => {
+  curOpts.ringOn = !curOpts.ringOn;
+  e.currentTarget.classList.toggle('on', curOpts.ringOn);
+  e.currentTarget.textContent = '环 A–C：' + (curOpts.ringOn ? '计入' : '不计');
+  scheduleRebuild();
+};
+
+/* 尺寸变化重排 */
+let rTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rTimer);
+  rTimer = setTimeout(() => { setupCanvas(); redraw(); }, 120);
+});
+
+/* 启动 */
+setupCanvas();
+rebuild(true);
+setPlaying(true);
+</script>
+</body>
+</html>
