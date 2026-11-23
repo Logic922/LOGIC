@@ -153,7 +153,7 @@ body{
 ██║     ██║   ██║██║   ██║██║██║          ██║╚██╔╝██║██║   ██║██╔═██╗ ██║   ██║██║   ██║
 ███████╗╚██████╔╝╚██████╔╝██║╚██████╗     ██║ ╚═╝ ██║╚██████╔╝██║  ██╗╚██████╔╝╚██████╔╝
 ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝ ╚═════╝     ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ </pre>
-    <div class="sub">静态站点 · 单文件前端 · 物理演示</div>
+    <div class="sub">澄海的小站</div>
     <div class="mode">Mode: static (github.io/Logic922)</div>
   </div>
 
@@ -300,8 +300,7 @@ function openItem(){
     return;
   }
   var x = DB[it.g].items[it.r];
-  if (/^https?:/.test(x.u)) window.open(x.u,'_blank','noopener');
-  else location.href = x.u;
+  window.open(x.u, '_blank', 'noopener');
 }
 
 function scrollToFocus(){
