@@ -21,7 +21,7 @@ minis/
 | `ish-hash-verify` | iSH 里校验文件完整性：大小判据 + 抽样哈希，避免对 GB 文件跑 sha256sum 烧设备 |
 | `math-figure` | matplotlib 生成中文 + 数学公式混排的教学图，含 mathtext 报错对照与越界/重叠自检 |
 | `chinese-pdf-report` | reportlab 生成中文 PDF 报告（JSON → A4 排版引擎） |
-| `physics-sim-video` | 把物理题做成带中文标注的模拟视频（离屏渲染 + 编码流程） |
+| `physics-sim-video` | 把物理题做成可交互的单文件 HTML 动画（Canvas 2D：播放/暂停/拖动/变速/关键帧跳转 + v-t 图） |
 | `listening-audio-analysis` | 转写考试听力音频为中英对照原文，并结合试卷照片做逐题解析 |
 | `precise-code-edit` | 精确编辑已有代码：计数断言替换 + 语法/悬空引用/清单 diff 四级自检 |
 | `code-review-subagent` | 编辑后派子代理通读整文件复核并迭代到收敛的流程 |
