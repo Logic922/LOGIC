@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>第5题模拟：物块 + 轻弹簧</title>
+<style>
+  :root{
+    --ink:#3c3c46; --grey:#82828c; --line:#d2d6e0; --card:#fff;
+    --blue:#1e5ac8; --red:#c83c3c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#eceef3;color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;}
+  .wrap{max-width:1000px;margin:0 auto;padding:10px 10px 24px;}
+  canvas{display:block;width:100%;height:auto;border-radius:12px;background:#fafafc;
+    box-shadow:0 2px 14px rgba(30,40,70,.10);}
+  .bar{margin-top:10px;background:var(--card);border-radius:12px;padding:12px 14px;
+    box-shadow:0 2px 14px rgba(30,40,70,.08);}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row+.row{margin-top:10px}
+  button{font:inherit;font-size:15px;padding:8px 16px;border-radius:9px;cursor:pointer;
+    border:1px solid var(--line);background:#f7f8fb;color:var(--ink);transition:.15s;}
+  button:hover{background:#eef1f8}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--blue);border-color:var(--blue);color:#fff;min-width:96px}
+  button.primary:hover{background:#1850b4}
+  button.on{background:#e3ecff;border-color:#a9c3f2;color:#1a4aa0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{border:0;border-radius:0;padding:8px 12px;background:#fff}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:#e3ecff;color:#1a4aa0}
+  .time{font-variant-numeric:tabular-nums;font-size:14px;color:var(--grey);
+    min-width:104px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:140px;height:26px;
+    background:transparent}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;
+    background:linear-gradient(90deg,#cfd8ea,#cfd8ea)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;
+    margin-top:-7px;border-radius:50%;background:var(--blue);border:2px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  .hint{font-size:13px;color:var(--grey)}
+  @media (max-width:560px){ .hint{display:none} button{padding:8px 12px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="stage" width="960" height="620"></canvas>
+  <div class="bar">
+    <div class="row">
+      <button id="btnPlay" class="primary">▶ 播放</button>
+      <button id="btnReset">↺ 重播</button>
+      <div class="seg" id="segSpeed">
+        <button data-sp="0.25">0.25×</button>
+        <button data-sp="0.5" class="on">0.5×</button>
+        <button data-sp="1">1×</button>
+      </div>
+      <button id="btnHold" class="on">关键帧停帧</button>
+      <span class="time" id="tlabel">t = 0.00 s</span>
+    </div>
+    <div class="row">
+      <input type="range" id="seek" min="0" max="2.6" step="0.001" value="0">
+    </div>
+    <div class="row">
+      <button data-jump="0">初态 t=0</button>
+      <button data-jump="max">跳跃到 t₁ 最大压缩</button>
+      <button data-jump="sep">跳跃到 t₂ 分离</button>
+      <span class="hint">拖动进度条任意定位；蓝色按钮跳到关键时刻</span>
+    </div>
+  </div>
+</div>
+<script>
+/* =======================================================================
+   物理段 —— 换题时只改这里（state / KEY / CONFIG / draw 里的标注文字）
+   ======================================================================= */
+const CFG = {
+  W: 960, H: 620, GROUND: 252,
+  L0: 4.0,        // 弹簧原长 m
+  k: 2.0, m: 1.0, // 劲度系数、质量
+  BW: 0.5,        // 物块宽度 m
+  T_END: 2.6,     // 模拟总时长（物理秒）
+  CAM: [-3.7, 5.7, 40, 920],   // 世界坐标 x0,x1 → 像素 px0,px1
+  VMIN: -2.35, VMAX: 1.45      // v-t 图纵轴范围
+};
+const om = Math.sqrt(2 * CFG.k / CFG.m);
+const T_MAX = Math.PI / (2 * om);   // 最大压缩
+const T_SEP = Math.PI / om;         // 分离
+
+/* 解析解：返回 [xP, xQ, vP, vQ]，单位 m 与 m/s */
+function state(t) {
+  if (t <= T_SEP) {
+    const xcm = 2.0 - 0.5 * t;
+    const s = CFG.L0 - 1.5 * Math.sin(om * t);      // 中心距
+    return [xcm - s / 2, xcm + s / 2,
+            -0.5 + 1.5 * Math.cos(om * t),
+            -0.5 - 1.5 * Math.cos(om * t)];
+  }
+  const xcm = 2.0 - 0.5 * T_SEP;
+  return [xcm - CFG.L0 / 2 - 2.0 * (t - T_SEP),
+          xcm + CFG.L0 / 2 + 1.0 * (t - T_SEP), -2.0, 1.0];
+}
+
+/* 结论面板：小标题可空 */
+const NOTES = [
+  ["初态",        "vP=+1v,  vQ=−2v"],
+  ["t₁ 最大压缩",  "动量守恒 → vP=vQ=−0.5v"],
+  ["",            "弹簧对 P 冲量 = −1.5mv  【对】"],
+  ["",            "对 Q 冲量 = +1.5mv（等大反向）"],
+  ["",            "|ΔxP|=0.36m, |ΔxQ|=1.14m  【错】"],
+  ["",            "W对P=−0.375mv²  【错】"],
+  ["",            "W对Q=−1.875mv²  【错】"],
+  ["",            "vP=0 时 Ep=2.0 < 2.25  【错】"],
+  ["t₂ 分离",      "vP=−2v, vQ=+1v（速度交换）"]
+];
+
+/* =======================================================================
+   以下为通用绘图工具（等价于旧 simkit 的 Canvas 版，换题不用动）
+   ======================================================================= */
+const COL = {blue:'#1e5ac8', red:'#c83c3c', ink:'#3c3c46', grey:'#82828c',
+             green:'#148250', purple:'#8a3ca0', amber:'#aa6e00'};
+const FONT = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif';
+const cv = document.getElementById('stage');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+cv.width = CFG.W * DPR; cv.height = CFG.H * DPR;
+const ctx = cv.getContext('2d');
+
+function text(s, x, y, size, color, align, baseline) {
+  ctx.font = size + 'px ' + FONT;
+  ctx.fillStyle = color;
+  ctx.textAlign = align || 'left';
+  ctx.textBaseline = baseline || 'middle';
+  ctx.fillText(s, x, y);
+}
+
+class Cam {
+  constructor(x0, x1, px0, px1) {
+    this.x0 = x0; this.px0 = px0; this.s = (px1 - px0) / (x1 - x0);
+  }
+  x(xm) { return this.px0 + (xm - this.x0) * this.s; }
+  d(dm) { return dm * this.s; }
+}
+
+function titleBar(label) {
+  ctx.fillStyle = '#26344f';
+  ctx.fillRect(0, 0, CFG.W, 44);
+  text(label, 18, 22, 18, '#fff');
+}
+
+function groundLine(y) {
+  ctx.strokeStyle = '#3c3c46'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CFG.W, y); ctx.stroke();
+  ctx.strokeStyle = '#c8cad2'; ctx.lineWidth = 1;
+  for (let x = 0; x < CFG.W; x += 26) {
+    ctx.beginPath(); ctx.moveTo(x, y + 1); ctx.lineTo(x + 12, y + 13); ctx.stroke();
+  }
+}
+
+function arrow(x, y, val, scale, color, width, head) {
+  scale = scale || 58; width = width || 5; head = head || 13;
+  if (Math.abs(val) < 0.02) return;
+  const ex = x + val * scale, sgn = val > 0 ? 1 : -1;
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, y); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(ex, y);
+  ctx.lineTo(ex - head * sgn, y - head * 0.7);
+  ctx.lineTo(ex - head * sgn, y + head * 0.7);
+  ctx.closePath(); ctx.fill();
+}
+
+/* 弹簧：从附着点 xa 拉到自由端 xf —— 长度必须由调用者按物理量给出 */
+function spring(xa, xf, y, amp, color) {
+  amp = amp || 14; color = color || '#5a6478';
+  const L = Math.abs(xa - xf);
+  if (L < 4) return;
+  const sgn = xa >= xf ? 1 : -1;
+  const lead = Math.min(14, L * 0.2);
+  const nz = L - 2 * lead;
+  const n = Math.max(3, Math.round(nz / 28));
+  const x0 = xf + sgn * lead;
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(xf, y); ctx.lineTo(x0, y);
+  for (let i = 1; i < 2 * n; i++) {
+    ctx.lineTo(x0 + sgn * nz * i / (2 * n), y + (i % 2 ? amp : -amp));
+  }
+  ctx.lineTo(xf + sgn * (L - lead), y); ctx.lineTo(xa, y);
+  ctx.stroke();
+}
+
+function block(cam, xm, wm, gy, label, color, sub, h) {
+  h = h || 62;
+  const x1 = cam.x(xm - wm / 2), x2 = cam.x(xm + wm / 2);
+  ctx.fillStyle = color; ctx.strokeStyle = '#282832'; ctx.lineWidth = 2;
+  roundRect(x1, gy - h, x2 - x1, h, 6); ctx.fill(); ctx.stroke();
+  const cx = (x1 + x2) / 2;
+  text(label, cx, gy - h / 2, 24, '#fff', 'center');
+  if (sub) text(sub, cx, gy + 16, 14, '#50505a', 'center');
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* 速度—时间面板 */
+function vtPanel(box, tmax, vmin, vmax, curves, tCursor, marks) {
+  const [x0, y0, x1, y1] = box;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#d2d6e0'; ctx.lineWidth = 2;
+  roundRect(x0 - 50, y0 - 50, x1 - x0 + 90, y1 - y0 + 96, 10); ctx.fill(); ctx.stroke();
+  text('速度—时间图  (取 v = 1)', x0 - 34, y0 - 30, 16, COL.ink);
+  const gx = t => x0 + (t / tmax) * (x1 - x0);
+  const gy = v => y0 + (vmax - v) / (vmax - vmin) * (y1 - y0);
+  ctx.lineWidth = 1;
+  for (let v = Math.ceil(vmin); v <= Math.floor(vmax); v++) {
+    ctx.strokeStyle = '#e1e4ec';
+    ctx.beginPath(); ctx.moveTo(x0, gy(v)); ctx.lineTo(x1, gy(v)); ctx.stroke();
+    text((v > 0 ? '+' : '') + v + 'v', x0 - 8, gy(v), 12, COL.grey, 'right');
+  }
+  ctx.strokeStyle = '#787882'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, gy(0)); ctx.lineTo(x1, gy(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0, y0 - 4); ctx.lineTo(x0, y1 + 4); ctx.stroke();
+  text('t', x1, gy(0) + 16, 14, COL.grey, 'center');
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = '#aaaab8'; ctx.lineWidth = 1.5;
+  marks.forEach(([tm, lab]) => {
+    const xm = gx(tm);
+    ctx.beginPath(); ctx.moveTo(xm, y0 - 46); ctx.lineTo(xm, y1 + 8); ctx.stroke();
+    ctx.setLineDash([]);
+    text(lab, xm + 4, y0 - 34, 12, '#96969f');
+    text(tm.toFixed(2) + 's', xm + 4, y0 - 16, 12, '#b4b4bd');
+    ctx.setLineDash([5, 5]);
+  });
+  ctx.setLineDash([]);
+  curves.forEach(([fn, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath();
+    for (let i = 0; i <= 260; i++) {
+      const tt = tmax * i / 260;
+      const px = gx(tt), py = gy(fn(tt));
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+  });
+  if (tCursor != null) {
+    const tc = Math.min(Math.max(tCursor, 0), tmax);
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(gx(tc), y0 - 4); ctx.lineTo(gx(tc), y1 + 8); ctx.stroke();
+    curves.forEach(([fn, col]) => {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(gx(tc), gy(fn(tc)), 5, 0, 7); ctx.fill();
+    });
+  }
+  let lx = x0 - 30;
+  curves.forEach(([, col, lab]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(lx, y1 + 34); ctx.lineTo(lx + 30, y1 + 34); ctx.stroke();
+    text(lab, lx + 36, y1 + 34, 12, col);
+    lx += 116;
+  });
+}
+
+function noteLines(x, y, lines) {
+  let yy = y;
+  lines.forEach(([head, body, col]) => {
+    if (head) text(head, x, yy, 13, '#5a5a64');
+    text(body, x + (head ? 72 : 14), yy, 13, col || COL.ink);
+    yy += 25;
+  });
+}
+
+/* =======================================================================
+   画面：与旧 Pillow 版构图一致（舞台 + 左下 v-t + 右侧结论）
+   ======================================================================= */
+const cam = new Cam(...CFG.CAM);
+
+function draw(t) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, CFG.W, CFG.H);
+  ctx.fillStyle = '#fafafc'; ctx.fillRect(0, 0, CFG.W, CFG.H);
+
+  const [xP, xQ, vP, vQ] = state(t);
+  titleBar('第5题模拟：P(m, v→) 与 Q(m, 2v←) + 轻弹簧（只固定在 Q 上）');
+  groundLine(CFG.GROUND);
+
+  // 弹簧：左端自由，长度 = min(原长, 实际间隙)；分离后保持原长被 P 甩开
+  const xa = cam.x(xQ - CFG.BW / 2);
+  const gap = (xQ - CFG.BW / 2) - (xP + CFG.BW / 2);
+  const Ls = Math.min(CFG.L0 - CFG.BW, Math.max(gap, 0.15));
+  spring(xa, xa - cam.d(Ls), CFG.GROUND - 31);
+
+  block(cam, xP, CFG.BW, CFG.GROUND, 'P', '#3478dc', 'm');
+  block(cam, xQ, CFG.BW, CFG.GROUND, 'Q', '#d64848', 'm');
+  arrow(cam.x(xP), CFG.GROUND - 92, vP, 58, COL.blue);
+  arrow(cam.x(xQ), CFG.GROUND - 92, vQ, 58, COL.red);
+  text('vP=' + fmt(vP) + 'v', cam.x(xP), CFG.GROUND - 112, 16, COL.blue, 'center');
+  text('vQ=' + fmt(vQ) + 'v', cam.x(xQ), CFG.GROUND - 112, 16, COL.red, 'center');
+
+  let msg, col;
+  if (t < 1e-9)                    { msg = 't=0：P 刚接触弹簧，系统开始相互作用'; col = COL.ink; }
+  else if (t < T_MAX - 1e-9)       { msg = '阶段①：弹簧被压缩 —— 两者都在减速'; col = COL.amber; }
+  else if (Math.abs(t - T_MAX) < 1e-9) { msg = 't₁ 最大压缩：vP = vQ = −0.5v（共同速度）'; col = '#c81e1e'; }
+  else if (t < T_SEP - 1e-9)       { msg = '阶段②：弹簧回弹，把两者向相反方向推开'; col = COL.green; }
+  else if (Math.abs(t - T_SEP) < 1e-9) { msg = 't₂ 分离：vP = −2v, vQ = +v（速度交换完成）'; col = '#c81e1e'; }
+  else                             { msg = '分离后：弹簧已恢复原长并与 P 脱离，此后无相互作用'; col = COL.purple; }
+  text(msg, 18, 62, 19, col);
+  text('t = ' + t.toFixed(2) + ' s', 18, 96, 16, COL.grey);
+
+  const comp = Math.max(CFG.L0 - (xQ - xP), 0);
+  text('弹簧压缩量 = ' + comp.toFixed(2) + ' m', CFG.W - 18, 62, 16, COL.grey, 'right');
+  text('弹性势能 Ep = ' + (0.5 * CFG.k * comp * comp).toFixed(2) + ' mv²',
+       CFG.W - 18, 92, 14, COL.grey, 'right');
+
+  vtPanel([70, 370, 575, 570], CFG.T_END, CFG.VMIN, CFG.VMAX,
+          [[tt => state(tt)[2], COL.blue, 'P 的速度'],
+           [tt => state(tt)[3], COL.red, 'Q 的速度']],
+          t, [[T_MAX, 't₁ 最大压缩'], [T_SEP, 't₂ 分离']]);
+
+  noteLines(650, 372, NOTES);
+}
+
+function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+
+/* =======================================================================
+   播放控制
+   ======================================================================= */
+let t = 0, playing = false, speed = 0.5, holdOn = true, lastNow = 0, holdUntil = 0;
+const btnPlay = document.getElementById('btnPlay');
+const seek = document.getElementById('seek');
+const tlabel = document.getElementById('tlabel');
+seek.max = CFG.T_END;
+
+function setPlaying(v) {
+  playing = v;
+  btnPlay.textContent = v ? '❚❚ 暂停' : '▶ 播放';
+  if (v) { lastNow = 0; requestAnimationFrame(loop); draw(t); }
+}
+
+function loop(now) {
+  if (!lastNow) lastNow = now;
+  const dt = Math.min((now - lastNow) / 1000, 0.05);
+  lastNow = now;
+  if (playing) {
+    if (now >= holdUntil) {
+      const prev = t;
+      t += dt * speed;
+      // 关键帧停帧：跨过 t₁/t₂ 时吸附并停 0.5 s
+      if (holdOn) {
+        for (const key of [T_MAX, T_SEP]) {
+          if (prev < key && t >= key) { t = key; holdUntil = now + 500; break; }
+        }
+      }
+      if (t >= CFG.T_END) { t = CFG.T_END; setPlaying(false); }
+    }
+  }
+  draw(t);
+  seek.value = t;
+  tlabel.textContent = 't = ' + t.toFixed(2) + ' s';
+  if (playing) requestAnimationFrame(loop);
+}
+
+btnPlay.onclick = () => {
+  if (!playing && t >= CFG.T_END) { t = 0; holdUntil = 0; }
+  setPlaying(!playing);
+};
+document.getElementById('btnReset').onclick = () => {
+  t = 0; holdUntil = 0; draw(t); seek.value = 0;
+  tlabel.textContent = 't = 0.00 s';
+  if (!playing) setPlaying(true);
+};
+document.querySelectorAll('#segSpeed button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#segSpeed button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    speed = parseFloat(b.dataset.sp);
+  };
+});
+document.getElementById('btnHold').onclick = e => {
+  holdOn = !holdOn;
+  e.currentTarget.classList.toggle('on', holdOn);
+};
+seek.oninput = () => { t = parseFloat(seek.value); holdUntil = 0; draw(t);
+  tlabel.textContent = 't = ' + t.toFixed(2) + ' s'; };
+document.querySelectorAll('[data-jump]').forEach(b => {
+  b.onclick = () => {
+    const k = b.dataset.jump;
+    t = k === 'max' ? T_MAX : k === 'sep' ? T_SEP : 0;
+    holdUntil = 0; playing = false; btnPlay.textContent = '▶ 播放';
+    seek.value = t; draw(t); tlabel.textContent = 't = ' + t.toFixed(2) + ' s';
+  };
+});
+
+draw(0);
+</script>
+</body>
+</html>
