@@ -19,8 +19,9 @@
 @font-face{font-family:Hack;src:url('../fonts/hack-bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
 :root{
   --bg:#0a1216; --fg:#d8e8ec; --dim:#7f99a2; --faint:#4c6570;
-  --sel:#a8d8e4; --selfg:#0b2731; --line:#22303a;
+  --sel:#a8d8e4; --selfg:#0b2731;
   --c2:#6fbfa8; --c3:#c9b87f; --c4:#4aa8d8; --c5:#5ec8d8; --c6:#5ec8d8; --c14:#8fd6e0;
+  --line:#1c2830;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overscroll-behavior:none}
@@ -29,125 +30,156 @@ body{
   font:13px/1.5 Hack,Menlo,Consolas,monospace;
   font-variant-ligatures:none;-webkit-font-smoothing:antialiased;
   touch-action:manipulation;-webkit-touch-callout:none;
-  background-image:radial-gradient(120% 70% at 50% -10%,#0f2026 0%,#0a1216 62%);
 }
-.app{max-width:820px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
-.head{padding:16px 18px 0}
+.app{max-width:820px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+.app:focus{outline:none}
+
+.head{padding:16px 18px 0;overflow:hidden}
 .logo-sm{margin:0;color:var(--c5);font-weight:700;font-size:13px;letter-spacing:.04em}
 .logo-sm .v{color:#e0e2e8;font-weight:400;margin-left:1.4ch;font-size:11px}
 .sub{margin-top:8px;color:var(--c6);font-weight:700;font-size:12px}
 .mode{margin-top:1px;color:var(--faint);font-size:11px;word-break:break-all}
 
-.body{padding:14px 18px 18px;min-width:0}
+.body{overflow-y:auto;overflow-x:hidden;padding:12px 18px 8px;min-height:0;scrollbar-width:none}
+.body::-webkit-scrollbar{display:none}
 
-/* 表单：终端提示行风格 */
-.row{display:flex;align-items:center;gap:1ch;min-height:26px;flex-wrap:wrap;margin-bottom:10px}
-.row .pr{color:var(--c6);white-space:nowrap}
-.row .pr b{color:#e0e2e8;font-weight:400}
+/* ---------- kitty cursor_trail（同主页） ---------- */
+#trailcv{position:fixed;inset:0;pointer-events:none;z-index:55}
+
+/* 键值面板（同主页 .details） */
+.details{padding:0 0 8px;color:var(--dim);font-size:11.5px;line-height:1.65}
+.details .k{color:var(--faint);white-space:pre}
+.details .d{color:var(--fg)}
+.details .p{color:var(--c4);word-break:break-all}
+.details .warn{color:var(--c3)}
+
+/* 输入行 */
+.row{display:flex;align-items:baseline;gap:1ch;min-height:22px;line-height:22px;padding-left:2ch;white-space:nowrap}
+.row .pf{color:var(--faint)}
+.row .pf b{color:var(--c14);font-weight:400}
+.row .pf .sym{color:var(--faint);margin:0 .6ch}
 input[type=password]{
-  font:inherit;color:var(--fg);background:#0d181d;border:1px solid var(--line);
-  border-radius:3px;padding:6px 8px;flex:1 1 12ch;min-width:0;outline:none;
+  font:inherit;color:var(--fg);background:transparent;border:0;
+  border-bottom:1px solid var(--line);padding:0 2px;flex:1 1 8ch;min-width:0;outline:none;
+  height:20px;line-height:20px;
 }
-input[type=password]:focus{border-color:var(--c4);box-shadow:0 0 0 1px rgba(74,168,216,.35)}
-.filewrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:1ch}
-.btn{
-  font:inherit;color:var(--fg);background:#0e1b21;border:1px solid var(--line);
-  border-radius:3px;padding:6px 11px;cursor:pointer;line-height:1.2;white-space:nowrap;
+input[type=password]:focus{border-bottom-color:var(--c4)}
+
+/* 菜单行（同主页 .item） */
+.menu{padding:6px 0 0}
+.item{
+  display:flex;align-items:baseline;min-width:0;
+  height:22px;line-height:22px;white-space:nowrap;
+  color:var(--fg);padding-left:2ch;cursor:pointer;
 }
-.btn:hover{border-color:#3c5f6b;color:#e8f3f6}
-.btn:active{transform:translateY(1px)}
-.btn.primary{background:var(--c4);border-color:#6cc0e0;color:#04161d;font-weight:700}
-.btn.primary:hover{background:#6cc0e0}
-.btn:disabled{opacity:.42;cursor:not-allowed;transform:none}
-.hint{color:var(--faint);font-size:11px}
-.fname{color:var(--c14);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .mk{width:2ch;color:var(--c4);font-weight:700;font-size:13px}
+.item .nm{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.item .meta{color:var(--faint);margin-left:1.4ch;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.item.focus{background:var(--sel);color:var(--selfg)}
+.item.focus .mk{color:var(--selfg)}
+.item.focus .nm{color:var(--selfg);font-weight:700}
+.item.focus .meta{color:#2f4c56}
+.item.dis .nm{color:var(--faint)}
+.item.dis .meta{color:#3a4a52}
+.item.focus.dis{background:#2b3d45}
+.item.focus.dis .nm{color:#9fb6c0}
+.item.focus.dis .meta{color:#7d949e}
+.item.focus.dis .mk{color:#9fb6c0}
+
+/* 离屏可编辑区：Safari 只在可编辑元素聚焦时才派发 paste 事件 */
+#pastecatcher{
+  position:fixed;left:-9999px;top:0;width:1px;height:1px;
+  opacity:0;overflow:hidden;pointer-events:none;
+}
 
 /* 预览 */
-.preview{border:1px solid var(--line);border-radius:4px;background:#0d181d;
-  padding:8px;display:none;margin:4px 0 12px;text-align:center}
+.preview{display:none;border:1px solid var(--line);background:transparent;padding:6px;margin:8px 0 0;text-align:center}
 .preview.on{display:block}
-.preview img{max-width:100%;max-height:38vh;object-fit:contain;display:block;margin:0 auto}
+.preview img{max-width:100%;max-height:26vh;object-fit:contain;display:block;margin:0 auto;background:#fff}
 
-/* 日志 */
-.log{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;font-size:11.5px;line-height:1.55}
+/* systemd 风格日志 */
+.log{margin-top:10px;font-size:11.5px;line-height:1.55;color:#7f878f}
 .log p{margin:0;white-space:pre-wrap;word-break:break-all}
 .log .ok{color:var(--c2)}
+.log .err{color:#e08b8b}
 .log .work{color:var(--c4)}
-.log .err{color:#e88b8b}
 .log .dim{color:var(--faint)}
-.log:empty{display:none}
-
-.actions{display:flex;gap:1.2ch;flex-wrap:wrap;margin-top:14px}
-a.btn{text-decoration:none;display:inline-block}
 
 .statusbar{
-  display:flex;align-items:center;gap:2ch;min-height:24px;padding:0 18px;
-  background:#141b21;border-top:1px solid var(--line);color:var(--dim);font-size:11px;
+  display:flex;align-items:center;gap:2ch;height:24px;padding:0 18px;
+  background:#141b21;border-top:1px solid var(--line);
+  color:var(--dim);font-size:11px;user-select:none;
 }
-.statusbar kbd{font:inherit;color:var(--fg);background:#202a32;border:1px solid #33404b;border-radius:2px;padding:0 3px}
-.statusbar .pos{margin-left:auto;color:var(--faint);white-space:nowrap}
+.statusbar .keys{display:flex;gap:1.4ch;flex:1;min-width:0;overflow:hidden}
+.statusbar kbd{font:inherit;color:var(--fg);background:#202a32;border:1px solid #33404b;
+  border-radius:2px;padding:0 3px}
+.statusbar .keyhint{color:var(--c6);font-size:11px;min-width:0;overflow:hidden}
+.statusbar .pos{color:var(--faint);white-space:nowrap}
+
 @media (max-width:640px){
   .head{padding:10px 12px 0}
-  .body{padding:10px 12px 14px}
+  .body{padding:10px 12px 6px}
   .statusbar{padding:0 12px}
-  .hide-m{display:none}
+  .statusbar .hide-m{display:none}
+  .row,.item{padding-left:1ch}
 }
 </style>
 </head>
 <body>
-<div class="app">
+<canvas id="trailcv"></canvas>
+<div class="app" tabindex="0">
   <div class="head">
     <div class="logo-sm">LOGICMOKOU<span class="v">v1.0</span></div>
     <div class="sub">学校相关 · 上传作业</div>
-    <div class="mode">AES-GCM + Argon2id → github.com/Logic922/LOGIC</div>
+    <div class="mode">AES-GCM + Argon2id &middot; github.com/Logic922/LOGIC</div>
   </div>
 
   <div class="body">
+    <div class="details">
+      <div><span class="k">target   </span><span class="p">school/homework.png</span></div>
+      <div><span class="k">kdf      </span><span class="d">Argon2id 64MiB / 3 轮 / 4 并行 &rarr; AES-GCM</span></div>
+      <div><span class="k">cipher   </span><span class="d" id="cipherState">未配置</span></div>
+    </div>
+
     <div class="row">
-      <span class="pr">密码 ❯</span>
+      <span class="pf"><b>密码</b><span class="sym">❯</span></span>
       <input id="password" type="password" placeholder="输入密码" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
-    <div class="row">
-      <span class="pr">图片<b>   </b> ❯</span>
-      <div class="filewrap">
-        <button class="btn" id="pickBtn" type="button">选择图片</button>
-        <span class="fname" id="fname">未选择</span>
-        <input id="file" type="file" accept="image/*" hidden>
-      </div>
-    </div>
+
+    <div class="menu" id="menu"></div>
+
     <div class="preview" id="preview"><img id="pv" alt="预览"></div>
-
-    <div class="row">
-      <button class="btn primary" id="uploadBtn" disabled>解密并上传</button>
-      <span class="hint" id="hint">上传完成后自动跳转到查看页</span>
-    </div>
-
     <div class="log" id="log"></div>
-
-    <div class="actions">
-      <a class="btn" href="../index.html">← 返回主页</a>
-      <a class="btn" href="view.html">查看作业</a>
-    </div>
   </div>
 
   <div class="statusbar">
-    <span><kbd>Esc</kbd> 返回</span>
-    <span class="hide-m"><kbd>↵</kbd> 开始上传</span>
-    <span class="pos" id="pos">school/upload.html</span>
+    <span class="keys">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 移动</span>
+      <span class="hide-m"><kbd>↵</kbd> 执行</span>
+      <span><kbd>Esc</kbd> 返回</span>
+    </span>
+    <span class="keyhint" id="keyhint"></span>
+    <span class="pos" id="pos"></span>
   </div>
 </div>
+
+<input id="file" type="file" accept="image/*" hidden>
+<div id="pastecatcher" contenteditable="true" aria-hidden="true"></div>
+
 <script>
 /* ==================== 配置区（部署前修改这里） ==================== */
-const CIPHER_B64 = "REPLACE_WITH_YOUR_CIPHER";   // 由 make-cipher.html 生成的密文
-const REPO       = "Logic922/LOGIC";             // 仓库
-const PATH       = "school/homework.png";        // 要替换的图片路径
+const CIPHER_B64 = "AYo1TImcHkLshcxTBvBx4SNDWjJ8nB2DV5ntWv7cebKPzE0GSr9KMzu1hRLEM9vccFpjKZ6iB7aXW3aaDF9/mMEDPXSdKLAKY1rhXZ6yfUm5Ypph8xFf5FeFRUYr4u1pYV8NiyCUTCNl07C+YK8/+4+hjJAzxWMd/S8Fl/EsNA==";   // 由 make-cipher.html 生成的密文
+const REPO       = "Logic922/LOGIC";
+const PATH       = "school/homework.png";
 const BRANCH     = "main";
-const VIEW_URL   = "view.html";                  // 上传成功后跳转
+const VIEW_URL   = "view.html";
 /* ================================================================ */
 
 const $ = id => document.getElementById(id);
-const logEl = $('log');
+const logEl = $('log'), menuEl = $('menu'), keyEl = $('keyhint'), posEl = $('pos');
+let busy = false;
 
+/* ---------- systemd 风格日志 ---------- */
 function log(msg, cls){
   const p = document.createElement('p');
   p.className = cls || '';
@@ -156,51 +188,158 @@ function log(msg, cls){
   p.scrollIntoView({block:'nearest'});
   return p;
 }
-function setLine(p, msg, cls){ p.textContent = msg; p.className = cls || ''; }
+const PAD = '         ';
+const OK  = '[  OK  ] ';
+const BAD = '[FAILED] ';
 
-function refreshBtn(){
+/* ---------- 状态 ---------- */
+let fileName = '', fileRef = null;
+
+function cipherReady(){ return CIPHER_B64 && CIPHER_B64.indexOf('REPLACE') !== 0 && CIPHER_B64.length > 40; }
+
+function refresh(){
   const pw = $('password').value;
-  const f  = $('file').files[0];
-  $('uploadBtn').disabled = !(pw && f);
+  const ready = !!(pw && fileRef && cipherReady() && !busy);
+  ITEMS[0].dis = !ready;
+  render();
+  $('cipherState').textContent = cipherReady() ? '已配置' : '未配置（CIPHER_B64 还是占位符）';
+  $('cipherState').className = cipherReady() ? 'd' : 'd warn';
 }
 
-$('pickBtn').addEventListener('click', () => $('file').click());
+/* ---------- 菜单 ---------- */
+const ITEMS = [
+  { n:'解密并上传', d:'替换 school/homework.png，完成后自动跳转', dis:true, run(){ doUpload(); } },
+  { n:'选择图片',   d:'从相册或文件里挑一张截图',                dis:false, run(){ $('file').click(); } },
+  { n:'从剪贴板粘贴', d:'直接抓剪切板里的截图（也可 Ctrl/Cmd+V）',  dis:false, run(){ pasteFromClipboard(); } },
+  { n:'查看作业',   d:'打开当前展示的作业',                      dis:false, run(){ location.href = VIEW_URL; } },
+  { n:'返回主页',   d:'回到 logicmokou 主页',                    dis:false, run(){ location.href = '../index.html'; } }
+];
+let focus = 0;
 
-$('file').addEventListener('change', () => {
-  const f = $('file').files[0];
-  $('fname').textContent = f ? `${f.name}  ${(f.size/1024).toFixed(1)} KB` : '未选择';
-  const pv = $('preview'), img = $('pv');
-  if (f){
-    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
-    const url = URL.createObjectURL(f);
-    img.dataset.url = url;
-    img.src = url;
-    pv.classList.add('on');
-  } else {
-    pv.classList.remove('on');
-  }
-  refreshBtn();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render(){
+  menuEl.innerHTML = ITEMS.map((x, i) => {
+    const meta = (i === 1 && fileName) ? fileName : x.d;
+    return '<div class="item'+(i===focus?' focus':'')+(x.dis?' dis':'')+'" data-i="'+i+'">' +
+      '<span class="mk">'+(i===focus?'❯':'')+'</span>' +
+      '<span class="nm">'+esc(x.n)+'</span>' +
+      '<span class="meta">'+esc(meta)+'</span></div>';
+  }).join('');
+  posEl.textContent = (focus+1) + '/' + ITEMS.length;
+  pushRect(menuEl.querySelector('.item.focus'));
+}
+function paint(){
+  menuEl.querySelectorAll('.item').forEach((el, i) => {
+    el.classList.toggle('focus', i === focus);
+    el.querySelector('.mk').textContent = (i === focus) ? '❯' : '';
+  });
+  posEl.textContent = (focus+1) + '/' + ITEMS.length;
+  pushRect(menuEl.querySelector('.item.focus'));
+}
+function move(d){ focus = (focus + d + ITEMS.length) % ITEMS.length; paint(); }
+function fire(){
+  const x = ITEMS[focus];
+  if (!x) return;
+  if (x.dis){ keyEl.textContent = '先填密码并选图片'; setTimeout(()=>keyEl.textContent='', 1600); return; }
+  x.run();
+}
+
+/* 鼠标真的移动过才让 hover 抢焦点，避免载入瞬间指针位置把焦点拽走 */
+let pointerMoved = false;
+document.addEventListener('pointermove', () => { pointerMoved = true; }, {once:true});
+
+menuEl.addEventListener('mouseover', e => {
+  if (!pointerMoved) return;
+  const el = e.target.closest('.item'); if (!el) return;
+  const i = +el.dataset.i; if (i === focus) return;
+  focus = i; paint();
 });
-$('password').addEventListener('input', refreshBtn);
+menuEl.addEventListener('click', e => {
+  const el = e.target.closest('.item'); if (!el) return;
+  focus = +el.dataset.i; paint(); setTimeout(fire, 60);
+});
 
-/* ---------- Argon2id：参数必须与 make-cipher.html 完全一致 ---------- */
+/* ---------- 选图（文件选择 / 剪贴板共用） ---------- */
+function useFile(f){
+  const pv = $('preview'), im = $('pv');
+  if (!f || !/^image\//.test(f.type || '')){
+    fileName = ''; fileRef = null; pv.classList.remove('on');
+    refresh();
+    if (f) log(PAD + 'Not an image: ' + (f.type || 'unknown'), 'err');
+    return;
+  }
+  fileName = (f.name || 'clipboard') + '  ' + (f.size/1024).toFixed(1) + ' KB';
+  fileRef = f;
+  if (im.dataset.url) URL.revokeObjectURL(im.dataset.url);
+  const url = URL.createObjectURL(f);
+  im.dataset.url = url; im.src = url; pv.classList.add('on');
+  logEl.innerHTML = '';
+  refresh();
+}
+
+$('file').addEventListener('change', () => useFile($('file').files[0]));
+
+/* 直接粘贴（Ctrl/Cmd+V）：截图软件复制过的图直接进来 */
+document.addEventListener('paste', e => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items){
+    if (it.type && it.type.indexOf('image/') === 0){
+      const f = it.getAsFile();
+      if (f){ e.preventDefault(); useFile(f); return; }
+    }
+  }
+});
+
+/* 点菜单项时读系统剪贴板（需用户手势，iOS 上可能有权限弹窗） */
+async function pasteFromClipboard(){
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read){
+      log(PAD + 'This browser cannot read clipboard. Press Ctrl/Cmd+V instead.', 'err');
+      return;
+    }
+    const items = await navigator.clipboard.read();
+    for (const it of items){
+      const type = (it.types || []).find(t => t.indexOf('image/') === 0);
+      if (type){
+        const blob = await it.getType(type);
+        useFile(new File([blob], 'clipboard.' + type.split('/')[1], { type }));
+        return;
+      }
+    }
+    log(PAD + 'No image in clipboard.', 'dim');
+  } catch(err){
+    const cat = document.getElementById('pastecatcher');
+    if (cat){ try { cat.focus(); } catch(_){} }
+    log(PAD + 'Clipboard read refused: ' + err.message, 'err');
+    log('→  已就位，按 ' + (/Mac|iPhone|iPad/.test(navigator.platform||'') ? '⌘V' : 'Ctrl+V') + ' 直接粘贴', 'dim');
+  }
+}
+$('password').addEventListener('input', refresh);
+$('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter'){ e.preventDefault(); doUpload(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target === $('password')) return;
+  const k = e.key || '';
+  if (k === 'ArrowDown' || k === 'j'){ e.preventDefault(); move(1); }
+  else if (k === 'ArrowUp' || k === 'k'){ e.preventDefault(); move(-1); }
+  else if (k === 'Enter' || k === ' '){ e.preventDefault(); fire(); }
+  else if (k === 'Escape' || k === 'q'){ location.href = '../index.html'; }
+});
+
+/* ---------- Argon2id：参数必须与 make-cipher.html 一致 ---------- */
 async function deriveKey(password, salt){
   if (!window.hashwasm || !hashwasm.argon2id) throw new Error('Argon2 库未加载（检查网络）');
   return await hashwasm.argon2id({
-    password: password,
-    salt: salt,
-    parallelism: 4,
-    iterations: 3,
-    memorySize: 65536,   // KiB = 64 MiB
-    hashLength: 32,
-    outputType: 'binary'
+    password: password, salt: salt, parallelism: 4, iterations: 3,
+    memorySize: 65536, hashLength: 32, outputType: 'binary'
   });
 }
 
-/* ---------- 解密 c → PAT b ----------
-   密文布局：flag(1) | salt(16) | nonce(12) | ct
-   flag: 1 = github_pat_ 前缀，2 = ghp_ 前缀，0 = 无前缀（原样）
-   固定的 github_pat_ 前缀不进密文，省长度也方便校验。 */
+/* ---------- 解密：flag(1) | salt(16) | nonce(12) | ct ---------- */
 const TOKEN_PREFIX = [null, 'github_pat_', 'ghp_'];
 
 async function decryptToken(password, cB64){
@@ -220,7 +359,7 @@ async function decryptToken(password, cB64){
   return (prefix || '') + body;
 }
 
-/* ---------- 文件 → Base64（去掉 data: 前缀） ---------- */
+/* ---------- 文件 → Base64 ---------- */
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -229,10 +368,26 @@ function fileToBase64(file){
     r.readAsDataURL(file);
   });
 }
-
 const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
 
-/* ---------- 上传（先取 sha，再 PUT） ---------- */
+/* ---------- 凭据校验交给 GitHub：本地不判定对错 ---------- */
+async function verifyToken(token){
+  const r = await fetch(`https://api.github.com/repos/${REPO}`, {
+    cache: 'no-store',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  });
+  let message = '';
+  if (!r.ok){
+    try { const j = await r.json(); message = (j && j.message) || ''; } catch(_){}
+  }
+  return { ok: r.ok, status: r.status, message };
+}
+
+/* ---------- 上传：先取 sha，再 PUT ---------- */
 async function uploadImage(token, file){
   const headers = {
     'Authorization': `Bearer ${token}`,
@@ -243,16 +398,10 @@ async function uploadImage(token, file){
 
   let sha;
   const g = await fetch(`${apiUrl}?ref=${encodeURIComponent(BRANCH)}`, { headers, cache:'no-store' });
-  if (g.ok){
-    sha = (await g.json()).sha;
-  } else if (g.status === 401){
-    throw new Error('Token 无效或已过期，请重新生成并加密');
-  } else if (g.status === 403){
-    throw new Error('Token 权限不足（需要该仓库 Contents: Read and write）');
-  } else if (g.status !== 404){
-    const t = await g.text();
-    throw new Error(`读取文件失败：${g.status} ${t.slice(0,120)}`);
-  }
+  if (g.ok){ sha = (await g.json()).sha; }
+  else if (g.status === 401){ throw new Error('Token 无效或已过期，请重新生成并加密'); }
+  else if (g.status === 403){ throw new Error('Token 权限不足（需要 Contents: Read and write）'); }
+  else if (g.status !== 404){ throw new Error('读取文件失败：HTTP ' + g.status); }
 
   const body = {
     message: `chore: update ${PATH} via web`,
@@ -267,80 +416,175 @@ async function uploadImage(token, file){
     body: JSON.stringify(body)
   });
   if (!p.ok){
-    let msg = p.status + '';
-    try {
-      const j = await p.json();
-      if (j && j.message) msg += ' ' + j.message;
-    } catch(_){}
-    throw new Error(`上传失败：${msg}`);
+    let msg = 'HTTP ' + p.status;
+    try { const j = await p.json(); if (j && j.message) msg += ' ' + j.message; } catch(_){}
+    throw new Error(msg);
   }
   const out = await p.json();
-  return (out.commit && out.commit.sha || '').slice(0, 7);
+  return (out.commit && out.commit.sha || '').slice(0,7);
 }
 
 /* ---------- 主流程 ---------- */
-let busy = false;
-
 async function doUpload(){
   if (busy) return;
   const password = $('password').value;
-  const file = $('file').files[0];
-  if (!password || !file) return;
-  if (!/^image\//.test(file.type)){ log('✗ 选择的不是图片文件', 'err'); return; }
-  if (!CIPHER_B64 || CIPHER_B64.indexOf('REPLACE') === 0 || CIPHER_B64.length < 40){
-    log('✗ 还没配置密文：请先用 make-cipher.html 生成 c 并填进 CIPHER_B64', 'err');
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024){ log('✗ 图片太大（>20MB），请先压缩', 'err'); return; }
+  const file = fileRef;
+  if (!cipherReady()){ log(PAD + 'Cipher not configured in upload.html', 'err'); return; }
+  if (!password){ log(PAD + 'Password is required', 'err'); return; }
+  if (!file){ log(PAD + 'No image selected', 'err'); return; }
+  if (!/^image\//.test(file.type)){ log(PAD + 'Not an image file', 'err'); return; }
+  if (file.size > 20 * 1024 * 1024){ log(PAD + 'Image larger than 20 MB', 'err'); return; }
 
   busy = true;
-  $('uploadBtn').disabled = true;
   logEl.innerHTML = '';
-  $('hint').textContent = '处理中，请不要关闭页面';
+  focus = 0; refresh();
+  keyEl.textContent = '处理中…';
 
+  /* 1. 还原凭据（本地只做还原，不判定对错） */
+  let step = log(PAD + 'Recovering credential (Argon2id, 64 MiB, 3 passes)...', 'work');
   let token = null;
-  const step1 = log('· 派生密钥并解密（Argon2id 约 1–2 秒）…', 'work');
   try {
     token = await decryptToken(password, CIPHER_B64);
-    setLine(step1, '✓ 解密成功，Token 已就绪', 'ok');
+    step.className = 'ok';
+    step.textContent = OK + 'Credential recovered.';
   } catch(e) {
-    setLine(step1, '✗ 密码错误，或密文被篡改', 'err');
-    busy = false; $('hint').textContent = '请重新输入密码'; refreshBtn();
+    step.className = 'err';
+    step.textContent = BAD + 'Credential could not be recovered.';
+    busy = false; keyEl.textContent = ''; refresh();
     return;
   }
 
-  const step2 = log(`· 上传到 ${PATH} …`, 'work');
-  let shaShort = '';
+  /* 2. 交给 GitHub 判定这份凭据是否有效 */
+  step = log(PAD + 'Verifying credential with GitHub...', 'work');
+  let verdict;
   try {
-    shaShort = await uploadImage(token, file);
-    setLine(step2, `✓ 上传成功${shaShort ? '（commit ' + shaShort + '）' : ''}`, 'ok');
+    verdict = await verifyToken(token);
   } catch(e) {
-    setLine(step2, '✗ ' + e.message, 'err');
+    step.className = 'err';
+    step.textContent = BAD + 'GitHub unreachable: ' + e.message;
+    token = null; busy = false; keyEl.textContent = ''; refresh();
+    return;
+  }
+  if (!verdict.ok){
+    step.className = 'err';
+    step.textContent = BAD + 'GitHub ' + verdict.status + (verdict.message ? ' ' + verdict.message : '');
+    token = null; busy = false; keyEl.textContent = ''; refresh();
+    return;
+  }
+  step.className = 'ok';
+  step.textContent = OK + 'GitHub accepted the credential.';
+
+  /* 3. 上传 */
+  step = log(PAD + 'Uploading ' + PATH + '...', 'work');
+  let sha = '';
+  try {
+    sha = await uploadImage(token, file);
+    step.className = 'ok';
+    step.textContent = OK + 'Uploaded ' + PATH + (sha ? ' (commit ' + sha + ')' : '');
+  } catch(e) {
+    step.className = 'err';
+    step.textContent = BAD + e.message;
     token = null;
-    busy = false; $('hint').textContent = '上传失败，可以重试'; refreshBtn();
+    busy = false; keyEl.textContent = ''; refresh();
     return;
   } finally {
     token = null;               // 立即丢弃 Token
   }
 
+  /* 4. 清理 */
+  step = log(PAD + 'Purging token from memory...', 'work');
+  step.className = 'ok';
+  step.textContent = OK + 'Token purged, password field cleared.';
   $('password').value = '';
-  $('file').value = '';
-  log('· Token 已从内存清除', 'dim');
-  log('· GitHub Pages 重建需要几十秒，查看页会先走 API 取最新图', 'dim');
-  const step3 = log('→ 正在跳转到查看作业…', 'work');
+  $('file').value = ''; fileRef = null; fileName = '';
+
+  log('         GitHub Pages 重建需要几十秒，查看页会先走 API 取最新图。', 'dim');
+  log('→  Redirecting to ' + VIEW_URL + ' ...', 'dim');
   setTimeout(() => { location.replace(`${VIEW_URL}?fresh=${Date.now()}`); }, 900);
 }
 
-$('uploadBtn').addEventListener('click', doUpload);
-$('password').addEventListener('keydown', e => {
-  if (e.key === 'Enter'){ e.preventDefault(); doUpload(); }
-});
+/* ---------------- kitty cursor_trail（同主页） ---------------- */
+window.__trailPos = null;
+window.__trailJump = true;
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') location.href = '../index.html';
-});
+function pushRect(el){
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  if (r.width > 0) window.__trailPos = {x:r.left, y:r.top, w:r.width, h:r.height};
+}
 
-refreshBtn();
+(function(){
+  const cv = document.getElementById('trailcv');
+  if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext('2d', {alpha:true});
+  const N = 16, TR = 94, TG = 200, TB = 216;
+  let W = 0, H = 0, dpr = 1;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.floor(W*dpr); cv.height = Math.floor(H*dpr);
+    cv.style.width = W+'px'; cv.style.height = H+'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  let prev = null, cur = null, alpha = 0, dirty = null;
+
+  function union(a,b){
+    const x0 = Math.min(a.x,b.x), y0 = Math.min(a.y,b.y);
+    const x1 = Math.max(a.x+a.w,b.x+b.w), y1 = Math.max(a.y+a.h,b.y+b.h);
+    return {x:x0-2, y:y0-2, w:(x1-x0)+4, h:(y1-y0)+4};
+  }
+
+  let lastTs = 0;
+  function frame(ts){
+    if (!ts) ts = performance.now();
+    const dt = lastTs ? Math.min(ts - lastTs, 60) : 16.7;
+    lastTs = ts;
+    const p = window.__trailPos;
+    if (p && window.__trailJump){
+      window.__trailJump = false;
+      prev = p; cur = p; alpha = 0;
+      if (dirty){ ctx.clearRect(0,0,W,H); dirty = null; }
+    }
+    if (p){
+      if (!cur){ prev = p; cur = p; }
+      else if (Math.abs(p.x-cur.x) > 0.5 || Math.abs(p.y-cur.y) > 0.5){
+        prev = cur; cur = p; alpha = 1;
+      }
+    }
+    if (alpha > 0.008 && prev && cur){
+      if (Math.abs(prev.y - cur.y) > 0.4 || Math.abs(prev.x - cur.x) > 0.4){
+        prev.x += (cur.x - prev.x) * 0.06;
+        prev.y += (cur.y - prev.y) * 0.06;
+        prev.w += (cur.w - prev.w) * 0.06;
+        prev.h += (cur.h - prev.h) * 0.06;
+      }
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba('+TR+','+TG+','+TB+','+(0.032*alpha).toFixed(3)+')';
+      for (let i = 0; i < N; i++){
+        const t = (i+0.5)/N;
+        ctx.fillRect(prev.x+(cur.x-prev.x)*t, prev.y+(cur.y-prev.y)*t, cur.w, cur.h);
+      }
+      ctx.clearRect(cur.x, cur.y, cur.w, cur.h);
+      dirty = union(prev, cur);
+      alpha *= Math.pow(0.975, dt/16.7);
+    } else if (dirty){
+      ctx.clearRect(0, 0, W, H);
+      dirty = null;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
+/* 初始化 */
+render();
+refresh();
+const app = document.querySelector('.app');
+try { app.focus({preventScroll:true}); } catch(_) {}
 </script>
 </body>
 </html>
