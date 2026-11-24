@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>查看作业 · logicmokou</title>
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' 'unsafe-inline';
+               connect-src https://api.github.com;
+               img-src 'self' data: blob:;
+               style-src 'self' 'unsafe-inline';
+               font-src 'self';">
+<link rel="preload" href="../fonts/hack-regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:Hack;src:url('../fonts/hack-regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:Hack;src:url('../fonts/hack-bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+:root{
+  --bg:#0a1216; --fg:#d8e8ec; --dim:#7f99a2; --faint:#4c6570;
+  --sel:#a8d8e4; --selfg:#0b2731; --line:#22303a;
+  --c2:#6fbfa8; --c3:#c9b87f; --c4:#4aa8d8; --c5:#5ec8d8; --c6:#5ec8d8; --c14:#8fd6e0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font:13px/1.5 Hack,Menlo,Consolas,monospace;
+  font-variant-ligatures:none;-webkit-font-smoothing:antialiased;
+  touch-action:manipulation;-webkit-touch-callout:none;
+  background-image:radial-gradient(120% 70% at 50% -10%,#0f2026 0%,#0a1216 62%);
+}
+.app{max-width:820px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+.head{padding:16px 18px 0}
+.logo-sm{margin:0;color:var(--c5);font-weight:700;font-size:13px;letter-spacing:.04em}
+.logo-sm .v{color:#e0e2e8;font-weight:400;margin-left:1.4ch;font-size:11px}
+.sub{margin-top:8px;color:var(--c6);font-weight:700;font-size:12px}
+.mode{margin-top:1px;color:var(--faint);font-size:11px;word-break:break-all}
+
+.body{padding:14px 18px 18px;min-width:0}
+.meta{font-size:11.5px;line-height:1.75;color:var(--dim);margin-bottom:10px}
+.meta .k{color:var(--faint);display:inline-block;min-width:9ch}
+.meta div{word-break:break-all;overflow-wrap:anywhere}
+.meta .v{color:var(--fg)}
+.meta .v.a{color:var(--c14)}
+.meta .v.warn{color:var(--c3)}
+
+.frame{
+  border:1px solid var(--line);border-radius:4px;background:#0d181d;
+  padding:8px;text-align:center;position:relative;min-height:120px;
+  display:flex;align-items:center;justify-content:center;
+}
+.frame img{max-width:100%;max-height:62vh;object-fit:contain;display:none;
+  border-radius:2px;background:#fff}
+.frame img.on{display:block}
+.frame .ph{color:var(--faint);font-size:11.5px;padding:26px 8px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-width:100%}
+.frame .ph.err{color:#e88b8b}
+
+.actions{display:flex;gap:1.2ch;flex-wrap:wrap;margin-top:14px;align-items:center}
+.btn{
+  font:inherit;color:var(--fg);background:#0e1b21;border:1px solid var(--line);
+  border-radius:3px;padding:6px 11px;cursor:pointer;line-height:1.2;white-space:nowrap;text-decoration:none;
+  display:inline-block;
+}
+.btn:hover{border-color:#3c5f6b;color:#e8f3f6}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--c4);border-color:#6cc0e0;color:#04161d;font-weight:700}
+.btn.primary:hover{background:#6cc0e0}
+.hint{color:var(--faint);font-size:11px}
+
+.statusbar{
+  display:flex;align-items:center;gap:2ch;min-height:24px;padding:0 18px;
+  background:#141b21;border-top:1px solid var(--line);color:var(--dim);font-size:11px;
+}
+.statusbar kbd{font:inherit;color:var(--fg);background:#202a32;border:1px solid #33404b;border-radius:2px;padding:0 3px}
+.statusbar .pos{margin-left:auto;color:var(--faint);white-space:nowrap}
+@media (max-width:640px){
+  .head{padding:10px 12px 0}
+  .body{padding:10px 12px 14px}
+  .statusbar{padding:0 12px}
+  .hide-m{display:none}
+  .frame img{max-height:56vh}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div class="logo-sm">LOGICMOKOU<span class="v">v1.0</span></div>
+    <div class="sub">学校相关 · 查看作业</div>
+    <div class="mode">github.com/Logic922/LOGIC · school/homework.png</div>
+  </div>
+
+  <div class="body">
+    <div class="meta" id="meta">
+      <div><span class="k">file</span><span class="v a">school/homework.png</span></div>
+      <div><span class="k">updated</span><span class="v" id="mDate">读取中…</span></div>
+      <div><span class="k">size</span><span class="v" id="mSize">—</span></div>
+      <div><span class="k">commit</span><span class="v" id="mSha">—</span></div>
+    </div>
+
+    <div class="frame">
+      <div class="ph" id="ph">正在载入…</div>
+      <img id="shot" alt="作业截图">
+    </div>
+
+    <div class="actions">
+      <a class="btn primary" href="../index.html">← 返回主页</a>
+      <button class="btn" id="reloadBtn" type="button">重新载入</button>
+      <a class="btn" href="upload.html">上传新作业</a>
+      <span class="hint" id="hint"></span>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span><kbd>Esc</kbd><kbd>h</kbd> 返回</span>
+    <span class="hide-m"><kbd>r</kbd> 重新载入</span>
+    <span class="pos">school/view.html</span>
+  </div>
+</div>
+
+<script>
+/* ==================== 配置区 ==================== */
+const REPO   = "Logic922/LOGIC";
+const PATH   = "school/homework.png";
+const BRANCH = "main";
+/* ============================================== */
+
+const $ = id => document.getElementById(id);
+const img = $('shot'), ph = $('ph');
+
+const fmtSize = b => b >= 1048576 ? (b/1048576).toFixed(2) + ' MB'
+                  : b >= 1024    ? (b/1024).toFixed(1) + ' KB'
+                  : b + ' B';
+
+function fmtDate(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const p = n => String(n).padStart(2,'0');
+  const rel = (() => {
+    const s = (Date.now() - d.getTime())/1000;
+    if (s < 60) return '刚刚';
+    if (s < 3600) return Math.floor(s/60) + ' 分钟前';
+    if (s < 86400) return Math.floor(s/3600) + ' 小时前';
+    return Math.floor(s/86400) + ' 天前';
+  })();
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ` +
+         `${p(d.getHours())}:${p(d.getMinutes())}  (${rel})`;
+}
+
+async function ghJSON(p){
+  const r = await fetch('https://api.github.com/repos/' + REPO + p, {
+    cache: 'no-store',
+    headers: { 'Accept': 'application/vnd.github+json' }
+  });
+  if (!r.ok) throw new Error(String(r.status));
+  return await r.json();
+}
+
+function showError(msg){
+  ph.className = 'ph err';
+  ph.textContent = msg;
+  ph.style.display = 'block';
+  img.classList.remove('on');
+}
+
+/* 1) 上传日期 / commit：查该文件的最近一次提交 */
+async function loadMeta(){
+  try {
+    const list = await ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`);
+    if (!list.length){
+      $('mDate').textContent = '尚无上传记录';
+      $('mDate').className = 'v warn';
+      return;
+    }
+    const c = list[0];
+    const when = (c.commit && c.commit.committer && c.commit.committer.date) || c.commit.author.date;
+    $('mDate').textContent = fmtDate(when);
+    $('mSha').textContent = (c.sha || '').slice(0,7) || '—';
+  } catch(e) {
+    $('mDate').textContent = '取不到提交时间（API 限流或离线）';
+    $('mDate').className = 'v warn';
+  }
+}
+
+/* 2) 图片：优先走 API 拿最新内容（绕过 Pages 缓存），失败退回直链 */
+async function loadImage(){
+  ph.className = 'ph';
+  ph.textContent = '正在载入…';
+  ph.style.display = 'block';
+  try {
+    const j = await ghJSON(`/contents/${PATH.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`);
+    const bin = atob((j.content || '').replace(/\s/g, ''));
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
+    img.onload = () => { ph.style.display = 'none'; img.classList.add('on'); };
+    img.onerror = () => showError('图片解码失败');
+    img.src = url;
+    $('mSize').textContent = fmtSize(j.size || buf.length);
+    $('hint').textContent = '经 GitHub API 取最新版本';
+    return;
+  } catch(e) {
+    /* 403/404/限流 → 直链 */
+  }
+  const bust = new URLSearchParams(location.search).get('fresh') || Date.now();
+  img.onload = () => {
+    ph.style.display = 'none'; img.classList.add('on');
+    $('mSize').textContent = img.naturalWidth + '×' + img.naturalHeight + ' px';
+    $('hint').textContent = '直链载入（Pages 可能有缓存）';
+  };
+  img.onerror = () => showError('还没有作业图片，或 GitHub Pages 尚未构建完成。\n可以先去上传一张。');
+  img.src = 'homework.png?v=' + bust;
+}
+
+function reload(){ loadMeta(); loadImage(); }
+
+$('reloadBtn').addEventListener('click', reload);
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape' || e.key === 'h') location.href = '../index.html';
+  else if (e.key === 'r') reload();
+});
+
+/* 上传页跳过来时带 ?fresh=，等 3 秒让 commit 落库 */
+const fresh = new URLSearchParams(location.search).get('fresh');
+if (fresh){
+  setTimeout(reload, 2500);
+  loadImage();
+} else {
+  reload();
+}
+</script>
+</body>
+</html>
