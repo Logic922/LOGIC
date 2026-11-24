@@ -348,6 +348,7 @@ function jumpCat(n){
 }
 /* ---------------- 交互 ---------------- */
 menuEl.addEventListener('click', function(e){
+  if (!bootDone){ markBootDone(); if (typeof skipBoot === 'function') skipBoot(); return; }
   var el = e.target.closest('.item');
   if (!el) return;
   focus = +el.dataset.i;
@@ -355,6 +356,7 @@ menuEl.addEventListener('click', function(e){
   setTimeout(openItem, 90);
 });
 menuEl.addEventListener('mousemove', function(e){
+  if (!bootDone) return;
   var el = e.target.closest('.item');
   if (!el) return;
   var i = +el.dataset.i;
@@ -607,6 +609,7 @@ window.__trailTick = 0;
 /* 打字时测一次光标位置（每次写字符一次，不是每帧） */
 function pushRect(el){
   if (!el) return;
+  /* 启动动画期间也照常推送：boot 里的 .cur 光标随打字移动，需要同一套拖尾 */
   var r = el.getBoundingClientRect();
   if (r.width > 0) window.__trailPos = {x:r.left, y:r.top, w:r.width, h:r.height};
 }
