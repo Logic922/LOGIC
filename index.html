@@ -168,7 +168,7 @@ body{
     <span class="keys">
       <span><kbd>↑</kbd><kbd>↓</kbd> 移动</span>
       <span class="hide-m"><kbd>↵</kbd> 展开/打开</span>
-      <span class="hide-m"><kbd>1</kbd>–<kbd>4</kbd> 分类</span>
+      <span class="hide-m"><kbd>1</kbd>–<kbd>5</kbd> 分类</span>
     </span>
     <span class="keyhint" id="keyhint"></span>
     <span class="pos" id="pos"></span>
@@ -180,6 +180,10 @@ body{
 const DB = [
   { id:'major', label:'大型项目', items:[
     { n:'midi8bit', s:'113K', t:'dir', d:'8-bit MIDI 播放器，示波器 + 卷帘 + 导出', u:'https://logic922.github.io/MIDI8BIT/' }
+  ]},
+  { id:'school', label:'学校相关', items:[
+    { n:'查看作业', s:'', t:'dir', d:'最新一张作业截图，附上传日期与提交记录', u:'school/view.html' },
+    { n:'上传作业', s:'', t:'dir', d:'输入密码解密 Token，替换作业截图后自动跳转', u:'school/upload.html' }
   ]},
   { id:'sim', label:'题目模拟', items:[
     { n:'waves', s:'36K', t:'dir', d:'波的干涉与衍射，可以拖波源', u:'projects/教学模拟/波沙盒/index.html' },
@@ -203,7 +207,7 @@ const DB = [
 ];
 
 /* ---------------- 状态 ---------------- */
-let openSet = { 0: true, 1: true };   // 允许多个展开：大型项目 + 题目模拟
+let openSet = { 0: true, 1: true };   // 允许多个展开：大型项目 + 学校相关
 let focus = 0;               // 扁平列表中的焦点
 let flat = [];        // [{type:'app',g}|{type:'item',g,r}]
 
@@ -427,7 +431,7 @@ function onKey(e){
     } else if (cj && openSet[cj.g]) openItem();
   }
   else if (k==='Enter'||k===' '||code===13||code===32){ e.preventDefault(); openItem(); }
-  else if (k>='1' && k<='4'){ jumpCat(parseInt(k,10)-1); }
+  else if (k>='1' && k<='5'){ jumpCat(parseInt(k,10)-1); }
 }
 window.addEventListener('keydown', onKey, true);
 document.addEventListener('keydown', onKey, true);
