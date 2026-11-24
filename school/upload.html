@@ -197,17 +197,27 @@ async function deriveKey(password, salt){
   });
 }
 
-/* ---------- 解密 c → PAT b ---------- */
+/* ---------- 解密 c → PAT b ----------
+   密文布局：flag(1) | salt(16) | nonce(12) | ct
+   flag: 1 = github_pat_ 前缀，2 = ghp_ 前缀，0 = 无前缀（原样）
+   固定的 github_pat_ 前缀不进密文，省长度也方便校验。 */
+const TOKEN_PREFIX = [null, 'github_pat_', 'ghp_'];
+
 async function decryptToken(password, cB64){
   const c = Uint8Array.from(atob(cB64), ch => ch.charCodeAt(0));
-  if (c.length < 29) throw new Error('密文长度不对');
-  const salt  = c.slice(0, 16);
-  const nonce = c.slice(16, 28);
-  const ct    = c.slice(28);
+  if (c.length < 30) throw new Error('密文长度不对');
+  const flag  = c[0];
+  const salt  = c.slice(1, 17);
+  const nonce = c.slice(17, 29);
+  const ct    = c.slice(29);
   const rawKey = await deriveKey(password, salt);
   const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
   const pt  = await crypto.subtle.decrypt({ name:'AES-GCM', iv: nonce }, key, ct);
-  return new TextDecoder().decode(pt);
+  const body = new TextDecoder().decode(pt);
+  const prefix = TOKEN_PREFIX[flag];
+  if (prefix === undefined) throw new Error('密文格式不认识');
+  if (flag !== 0 && !/^[\x21-\x7e]{10,}$/.test(body)) throw new Error('Token 内容异常');
+  return (prefix || '') + body;
 }
 
 /* ---------- 文件 → Base64（去掉 data: 前缀） ---------- */
