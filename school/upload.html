@@ -429,7 +429,8 @@ async function uploadImage(token, file){
     throw new Error(msg);
   }
   const out = await p.json();
-  return (out.commit && out.commit.sha || '').slice(0,7);
+  /* 返回完整 40 位 sha：jsDelivr 版本定址(cdn.jsdelivr.net/gh/…@<sha>)必须用完整 sha */
+  return (out.commit && out.commit.sha) || '';
 }
 
 /* ---------- 主流程 ---------- */
@@ -495,7 +496,7 @@ async function doUpload(){
   try {
     sha = await uploadImage(token, file);
     step.className = 'ok';
-    step.textContent = OK + 'Uploaded ' + PATH + (sha ? ' (commit ' + sha + ')' : '');
+    step.textContent = OK + 'Uploaded ' + PATH + (sha ? ' (commit ' + sha.slice(0,7) + ')' : '');
   } catch(e) {
     step.className = 'err';
     step.textContent = BAD + e.message;
@@ -513,9 +514,9 @@ async function doUpload(){
   $('password').value = '';
   $('file').value = ''; fileRef = null; fileName = '';
 
-  log('         GitHub Pages 重建需要几十秒，查看页会先走 API 取最新图。', 'dim');
+  log('         查看页会直接用本次提交的 sha 取图，无需等 Pages 重建。', 'dim');
   log('→  Redirecting to ' + VIEW_URL + ' ...', 'dim');
-  setTimeout(() => { location.replace(`${VIEW_URL}?fresh=${Date.now()}`); }, 900);
+  setTimeout(() => { location.replace(VIEW_URL + (sha ? '?sha=' + sha : '')); }, 900);
 }
 
 /* ---------------- kitty cursor_trail（同主页） ---------------- */
