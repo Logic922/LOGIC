@@ -153,7 +153,7 @@ const RAW    = "https://raw.githubusercontent.com/Logic922/LOGIC/main/school/hom
 /* 图源优先级：jsDelivr(sha) > jsDelivr(分支) > raw(sha) > Pages 同源 > raw(分支) > API base64 */
 const RAW_SHA = sha => `https://raw.githubusercontent.com/${REPO}/${sha}/${PATH}`;
 const CDN     = ref => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${PATH}`;
-const T_IMG   = 8000;   /* 每级图源超时 ms */
+const T_IMG   = 20000;  /* 单级图源超时 ms：大图冷回源慢，宁可多等也不要来回切换 */
 /* 上传页跳转时带 ?sha=<commit>，直接用，省掉一次 API 往返 */
 const QS_SHA  = (new URLSearchParams(location.search).get('sha') || '')
                   .toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 40);
@@ -248,11 +248,15 @@ async function loadImage(){
   }
 
   const cands = [];
-  if (sha) cands.push([CDN(sha), 'via jsDelivr（版本定址）']);
-  cands.push([CDN(BRANCH), 'via jsDelivr（分支引用，可能滞后约 12h）']);
-  if (sha) cands.push([RAW_SHA(sha), 'via raw 直链（版本定址）']);
-  cands.push(['homework.png', 'via Pages 同源']);
-  cands.push([RAW, 'via raw 直链']);
+  if (sha){
+    /* 有确定性 sha 时，只用内容定址的源：分支引用和 Pages 同源都可能吐出旧图 */
+    cands.push([CDN(sha), 'via jsDelivr（版本定址）']);
+    cands.push([RAW_SHA(sha), 'via raw 直链（版本定址）']);
+  } else {
+    cands.push([CDN(BRANCH), 'via jsDelivr（分支引用，可能滞后约 12h）']);
+    cands.push(['homework.png', 'via Pages 同源']);
+    cands.push([RAW, 'via raw 直链']);
+  }
 
   for (const [u, h] of cands){
     try { await trySrc(u, h); return; } catch(e) { /* 试下一级 */ }
