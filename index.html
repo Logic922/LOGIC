@@ -182,8 +182,8 @@ const DB = [
     { n:'midi8bit', s:'113K', t:'dir', d:'8-bit MIDI 播放器，示波器 + 卷帘 + 导出', u:'https://logic922.github.io/MIDI8BIT/' }
   ]},
   { id:'school', label:'学校相关', items:[
-    { n:'查看作业', s:'', t:'dir', d:'最新一张作业截图，附上传日期与提交记录', u:'school/view.html' },
-    { n:'上传作业', s:'', t:'dir', d:'输入密码解密 Token，替换作业截图后自动跳转', u:'school/upload.html' }
+    { n:'查看作业', s:'', t:'dir', same:1, d:'最新一张作业截图，附上传日期与提交记录', u:'school/view.html' },
+    { n:'上传作业', s:'', t:'dir', same:1, d:'输入密码解密 Token，替换作业截图后自动跳转', u:'school/upload.html' }
   ]},
   { id:'sim', label:'题目模拟', items:[
     { n:'waves', s:'36K', t:'dir', d:'波的干涉与衍射，可以拖波源', u:'projects/教学模拟/波沙盒/index.html' },
@@ -308,6 +308,7 @@ function openItem(){
     return;
   }
   var x = DB[it.g].items[it.r];
+  if (x.same){ location.href = x.u; return; }
   window.open(x.u, '_blank', 'noopener');
 }
 
