@@ -131,13 +131,12 @@ input[type=password]:focus{border-bottom-color:var(--c4)}
   <div class="head">
     <div class="logo-sm">LOGICMOKOU<span class="v">v1.0</span></div>
     <div class="sub">学校相关 · 上传作业</div>
-    <div class="mode">AES-GCM + Argon2id &middot; github.com/Logic922/LOGIC</div>
+    <div class="mode">Argon2id + AES-256-CTR &middot; github.com/Logic922/LOGIC</div>
   </div>
 
   <div class="body">
     <div class="details">
       <div><span class="k">target   </span><span class="p">school/homework.png</span></div>
-      <div><span class="k">kdf      </span><span class="d">Argon2id 64MiB / 3 轮 / 4 并行 &rarr; AES-GCM</span></div>
       <div><span class="k">cipher   </span><span class="d" id="cipherState">未配置</span></div>
     </div>
 
@@ -168,7 +167,7 @@ input[type=password]:focus{border-bottom-color:var(--c4)}
 
 <script>
 /* ==================== 配置区（部署前修改这里） ==================== */
-const CIPHER_B64 = "AYo1TImcHkLshcxTBvBx4SNDWjJ8nB2DV5ntWv7cebKPzE0GSr9KMzu1hRLEM9vccFpjKZ6iB7aXW3aaDF9/mMEDPXSdKLAKY1rhXZ6yfUm5Ypph8xFf5FeFRUYr4u1pYV8NiyCUTCNl07C+YK8/+4+hjJAzxWMd/S8Fl/EsNA==";   // 由 make-cipher.html 生成的密文
+const CIPHER_B64 = "JOnBpTa6VnMV9JRUvvx3GYEZw3bT4XF5pqNeMcivWOO7ZsbtS1L7Onn5bXBDwtWZJrhj+2Epwf3KpfaPoZwWuwTox4wsQCGg+wrdoe8sdgSKbR5CrkY38n6lYcZct3Czs423KPvEu9ydQMk5z2H372LY";   // 由 make-cipher.html 生成的密文
 const REPO       = "Logic922/LOGIC";
 const PATH       = "school/homework.png";
 const BRANCH     = "main";
@@ -330,33 +329,39 @@ document.addEventListener('keydown', e => {
   else if (k === 'Escape' || k === 'q'){ location.href = '../index.html'; }
 });
 
-/* ---------- Argon2id：参数必须与 make-cipher.html 一致 ---------- */
+/* ============ 常量：必须与 make-cipher.html 完全一致 ============ */
+const ALPHABET     = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_'; // 63 个
+const TOKEN_PREFIX = 'github_pat_';   // 公开前缀，不进密文
+const KDF          = { parallelism: 4, iterations: 3, memorySize: 262144, hashLength: 32 };
+
 async function deriveKey(password, salt){
   if (!window.hashwasm || !hashwasm.argon2id) throw new Error('Argon2 库未加载（检查网络）');
   return await hashwasm.argon2id({
-    password: password, salt: salt, parallelism: 4, iterations: 3,
-    memorySize: 65536, hashLength: 32, outputType: 'binary'
+    password: password, salt: salt,
+    parallelism: KDF.parallelism, iterations: KDF.iterations,
+    memorySize: KDF.memorySize, hashLength: KDF.hashLength, outputType: 'binary'
   });
 }
 
-/* ---------- 解密：flag(1) | salt(16) | nonce(12) | ct ---------- */
-const TOKEN_PREFIX = [null, 'github_pat_', 'ghp_'];
+/* ---------- 解密：salt(16) | counter(16) | ct ----------
+   任意密码都解出等长候选凭据：不校验 tag、不查字符集、不抛异常。
+   AES-CTR 无认证，decrypt 对任何密钥都成功；seed 满熵，输出分布不可区分。 */
+function seedToTail(seed){
+  let s = '';
+  for (let i = 0; i < seed.length; i++) s += ALPHABET[seed[i] % 63];
+  return s;
+}
 
 async function decryptToken(password, cB64){
   const c = Uint8Array.from(atob(cB64), ch => ch.charCodeAt(0));
-  if (c.length < 30) throw new Error('密文长度不对');
-  const flag  = c[0];
-  const salt  = c.slice(1, 17);
-  const nonce = c.slice(17, 29);
-  const ct    = c.slice(29);
+  if (c.length < 48) throw new Error('密文格式不对（长度 ' + c.length + '）');
+  const salt    = c.slice(0, 16);
+  const counter = c.slice(16, 32);
+  const ct      = c.slice(32);
   const rawKey = await deriveKey(password, salt);
-  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
-  const pt  = await crypto.subtle.decrypt({ name:'AES-GCM', iv: nonce }, key, ct);
-  const body = new TextDecoder().decode(pt);
-  const prefix = TOKEN_PREFIX[flag];
-  if (prefix === undefined) throw new Error('密文格式不认识');
-  if (flag !== 0 && !/^[\x21-\x7e]{10,}$/.test(body)) throw new Error('Token 内容异常');
-  return (prefix || '') + body;
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-CTR', false, ['decrypt']);
+  const seed = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CTR', counter, length: 128 }, key, ct));
+  return TOKEN_PREFIX + seedToTail(seed);
 }
 
 /* ---------- 文件 → Base64 ---------- */
@@ -440,34 +445,41 @@ async function doUpload(){
   focus = 0; refresh();
   keyEl.textContent = '处理中…';
 
-  /* 1. 还原凭据（本地只做还原，不判定对错） */
-  let step = log(PAD + 'Recovering credential (Argon2id, 64 MiB, 3 passes)...', 'work');
+  /* 1. 本地只还原候选凭据，不判定对错（任意密码都走到这里） */
+  let step = log(PAD + 'Deriving candidate credential (Argon2id, 256 MiB, 3 passes)...', 'work');
   let token = null;
   try {
     token = await decryptToken(password, CIPHER_B64);
     step.className = 'ok';
-    step.textContent = OK + 'Credential recovered.';
+    step.textContent = OK + 'Candidate credential ready (local check: none).';
   } catch(e) {
     step.className = 'err';
-    step.textContent = BAD + 'Credential could not be recovered.';
+    step.textContent = BAD + 'Cipher structure broken: ' + e.message;
     busy = false; keyEl.textContent = ''; refresh();
     return;
   }
 
-  /* 2. 交给 GitHub 判定这份凭据是否有效 */
-  step = log(PAD + 'Verifying credential with GitHub...', 'work');
+  /* 2. 对错只由 GitHub 判定：200 通过 / 401 密码错或凭据失效 / 其他为 API 异常 */
+  step = log(PAD + 'Asking GitHub to validate the credential...', 'work');
   let verdict;
   try {
     verdict = await verifyToken(token);
   } catch(e) {
     step.className = 'err';
-    step.textContent = BAD + 'GitHub unreachable: ' + e.message;
+    step.textContent = BAD + 'GitHub unreachable (not a password verdict): ' + e.message;
     token = null; busy = false; keyEl.textContent = ''; refresh();
     return;
   }
   if (!verdict.ok){
     step.className = 'err';
-    step.textContent = BAD + 'GitHub ' + verdict.status + (verdict.message ? ' ' + verdict.message : '');
+    if (verdict.status === 401){
+      step.textContent = BAD + 'HTTP 401 — password wrong, or the PAT expired / was revoked.';
+    } else if (verdict.status === 403){
+      step.textContent = BAD + 'HTTP 403 — credential lacks Contents: Read and write.';
+    } else {
+      step.textContent = BAD + 'HTTP ' + verdict.status + (verdict.message ? ' ' + verdict.message : '') +
+                         ' — API error, not a password verdict.';
+    }
     token = null; busy = false; keyEl.textContent = ''; refresh();
     return;
   }
