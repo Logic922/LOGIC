@@ -154,6 +154,9 @@ const RAW    = "https://raw.githubusercontent.com/Logic922/LOGIC/main/school/hom
 const RAW_SHA = sha => `https://raw.githubusercontent.com/${REPO}/${sha}/${PATH}`;
 const CDN     = ref => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${PATH}`;
 const T_IMG   = 8000;   /* 每级图源超时 ms */
+/* 上传页跳转时带 ?sha=<commit>，直接用，省掉一次 API 往返 */
+const QS_SHA  = (new URLSearchParams(location.search).get('sha') || '')
+                  .toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 40);
 /* ============================================== */
 
 const $ = id => document.getElementById(id);
@@ -190,7 +193,7 @@ async function ghJSON(p, ms){
 /* 元信息和图片共用同一次 commits 请求，别打两次 API */
 let metaP = null;
 function metaPromise(){
-  if (!metaP) metaP = ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`, 8000);
+  if (!metaP) metaP = ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`, 4000);
   return metaP;
 }
 
@@ -236,11 +239,13 @@ async function loadImage(){
   img.classList.remove('on');
   $('mSize').textContent = '—'; $('mHint').textContent = '';
 
-  let sha = null;
-  try {
-    const list = await metaPromise();
-    sha = (list && list[0] && list[0].sha) || null;
-  } catch(e) { /* API 不通也不挡图，退回分支引用 */ }
+  let sha = QS_SHA.length >= 7 ? QS_SHA : '';
+  if (!sha) {
+    try {
+      const list = await metaPromise();
+      sha = (list && list[0] && list[0].sha) || null;
+    } catch(e) { /* API 不通也不挡图，退回分支引用 */ }
+  }
 
   const cands = [];
   if (sha) cands.push([CDN(sha), 'via jsDelivr（版本定址）']);
