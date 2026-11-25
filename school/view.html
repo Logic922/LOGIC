@@ -8,8 +8,8 @@
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self' 'unsafe-inline';
-               connect-src https://api.github.com;
-               img-src 'self' data: blob: https://raw.githubusercontent.com;
+               connect-src https://api.github.com https://cdn.jsdelivr.net;
+               img-src 'self' data: blob: https://raw.githubusercontent.com https://cdn.jsdelivr.net;
                style-src 'self' 'unsafe-inline';
                font-src 'self';">
 <link rel="preload" href="../fonts/hack-regular.woff2" as="font" type="font/woff2" crossorigin>
@@ -150,6 +150,10 @@ const REPO   = "Logic922/LOGIC";
 const PATH   = "school/homework.png";
 const BRANCH = "main";
 const RAW    = "https://raw.githubusercontent.com/Logic922/LOGIC/main/school/homework.png";
+/* 图源优先级：jsDelivr(sha) > jsDelivr(分支) > raw(sha) > Pages 同源 > raw(分支) > API base64 */
+const RAW_SHA = sha => `https://raw.githubusercontent.com/${REPO}/${sha}/${PATH}`;
+const CDN     = ref => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${PATH}`;
+const T_IMG   = 8000;   /* 每级图源超时 ms */
 /* ============================================== */
 
 const $ = id => document.getElementById(id);
@@ -170,18 +174,30 @@ function fmtDate(iso){
          `${p(d.getHours())}:${p(d.getMinutes())}  (${rel})`;
 }
 
-async function ghJSON(p){
-  const r = await fetch('https://api.github.com/repos/' + REPO + p, {
-    cache: 'no-store', headers: { 'Accept': 'application/vnd.github+json' }
-  });
-  if (!r.ok) throw new Error(String(r.status));
-  return await r.json();
+async function ghJSON(p, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 10000);
+  try {
+    const r = await fetch('https://api.github.com/repos/' + REPO + p, {
+      cache: 'no-store', signal: ctl.signal,
+      headers: { 'Accept': 'application/vnd.github+json' }
+    });
+    if (!r.ok) throw new Error(String(r.status));
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+/* 元信息和图片共用同一次 commits 请求，别打两次 API */
+let metaP = null;
+function metaPromise(){
+  if (!metaP) metaP = ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`, 8000);
+  return metaP;
 }
 
 /* ---------- 元信息：最近一次提交 ---------- */
 async function loadMeta(){
   try {
-    const list = await ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`);
+    const list = await metaPromise();
     if (!list.length){
       $('mDate').textContent = '尚无上传记录';
       $('mDate').className = 'd warn';
@@ -198,41 +214,65 @@ async function loadMeta(){
   }
 }
 
-/* ---------- 图片：先走 API 取最新，失败回退直链 ---------- */
+/* ---------- 图片：jsDelivr 版本定址优先，多级兜底 ---------- */
+function trySrc(url, hint){
+  return new Promise((res, rej) => {
+    const t = setTimeout(() => { img.onload = img.onerror = null; rej(new Error('timeout')); }, T_IMG);
+    img.onload = () => {
+      clearTimeout(t);
+      ph.style.display = 'none'; img.classList.add('on');
+      $('mSize').textContent = img.naturalWidth + '×' + img.naturalHeight + ' px';
+      $('mHint').textContent = hint;
+      res(true);
+    };
+    img.onerror = () => { clearTimeout(t); rej(new Error(url)); };
+    img.removeAttribute('src');
+    img.src = url;
+  });
+}
+
 async function loadImage(){
   ph.className = 'ph'; ph.textContent = '正在载入…'; ph.style.display = 'block';
   img.classList.remove('on');
+  $('mSize').textContent = '—'; $('mHint').textContent = '';
+
+  let sha = null;
   try {
-    const j = await ghJSON(`/contents/${PATH.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`);
+    const list = await metaPromise();
+    sha = (list && list[0] && list[0].sha) || null;
+  } catch(e) { /* API 不通也不挡图，退回分支引用 */ }
+
+  const cands = [];
+  if (sha) cands.push([CDN(sha), 'via jsDelivr（版本定址）']);
+  cands.push([CDN(BRANCH), 'via jsDelivr（分支引用，可能滞后约 12h）']);
+  if (sha) cands.push([RAW_SHA(sha), 'via raw 直链（版本定址）']);
+  cands.push(['homework.png', 'via Pages 同源']);
+  cands.push([RAW, 'via raw 直链']);
+
+  for (const [u, h] of cands){
+    try { await trySrc(u, h); return; } catch(e) { /* 试下一级 */ }
+  }
+
+  /* 最后兜底：Contents API 取 base64 */
+  try {
+    const j = await ghJSON(`/contents/${PATH.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(BRANCH)}`, 12000);
     const bin = atob((j.content || '').replace(/\s/g, ''));
     const buf = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     const url = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
-    img.onload = () => { ph.style.display = 'none'; img.classList.add('on'); };
-    img.onerror = () => { ph.className = 'ph'; ph.textContent = '图片解码失败'; };
-    img.src = url;
     $('mSize').textContent = fmtSize(j.size || buf.length);
-    $('mHint').textContent = 'via GitHub API（绕过 Pages 缓存）';
+    await trySrc(url, 'via GitHub API（兜底）');
     return;
-  } catch(e) { /* 403/404/限流 → 直链 */ }
+  } catch(e) { }
 
-  const bust = new URLSearchParams(location.search).get('fresh') || Date.now();
-  img.onload = () => {
-    ph.style.display = 'none'; img.classList.add('on');
-    $('mSize').textContent = img.naturalWidth + '×' + img.naturalHeight + ' px';
-    $('mHint').textContent = 'via Pages 直链（可能有缓存）';
-  };
-  img.onerror = () => {
-    ph.className = 'ph';
-    ph.textContent = '还没有作业图片。\n先去「上传作业」传一张。';
-    $('mSize').textContent = '—';
-  };
-  img.src = 'homework.png?v=' + bust;
+  ph.className = 'ph';
+  ph.textContent = '图片加载失败。\n检查网络，或点「重新载入」再试。';
+  $('mSize').textContent = '—';
 }
 
 /* ---------- 操作项（与主页菜单同一套交互） ---------- */
 const ITEMS = [
-  { n:'打开原图', d:'新标签页打开 homework.png', run(){ window.open(RAW, '_blank', 'noopener'); } },
+  { n:'打开原图', d:'新标签页打开当前这张图', run(){ window.open(img.currentSrc || CDN(BRANCH), '_blank', 'noopener'); } },
   { n:'重新载入', d:'刷新图片与上传时间',        run(){ reload(); } },
   { n:'上传作业', d:'换一张新的作业截图',        run(){ location.href = 'upload.html'; } },
   { n:'返回主页', d:'回到 logicmokou 主页',      run(){ location.href = '../index.html'; } }
@@ -289,7 +329,7 @@ document.addEventListener('keydown', e => {
   else if (k === 'Escape' || k === 'h' || k === 'q'){ location.href = '../index.html'; }
 });
 
-function reload(){ loadMeta(); loadImage(); }
+function reload(){ metaP = null; loadMeta(); loadImage(); }
 
 /* ---------------- kitty cursor_trail（同主页） ---------------- */
 window.__trailPos = null;
