@@ -8,8 +8,8 @@
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self' 'unsafe-inline';
-               connect-src https://api.github.com https://cdn.jsdelivr.net;
-               img-src 'self' data: blob: https://raw.githubusercontent.com https://cdn.jsdelivr.net;
+               connect-src https://api.github.com;
+               img-src 'self' data: blob:;
                style-src 'self' 'unsafe-inline';
                font-src 'self';">
 <link rel="preload" href="../fonts/hack-regular.woff2" as="font" type="font/woff2" crossorigin>
@@ -126,7 +126,8 @@ body{
       <div><span class="k">file     </span><span class="p">school/homework.png</span></div>
       <div><span class="k">updated  </span><span class="d" id="mDate">读取中…</span></div>
       <div><span class="k">size     </span><span class="d" id="mSize">&mdash;</span></div>
-      <div><span class="k">commit   </span><span class="d" id="mSha">&mdash;</span></div>
+      <div><span class="k">px       </span><span class="d" id="mPx">&mdash;</span></div>
+      <div><span class="k">version  </span><span class="d" id="mSha">&mdash;</span></div>
       <div class="hint" id="mHint"></div>
     </div>
 
@@ -146,17 +147,12 @@ body{
 
 <script>
 /* ==================== 配置区 ==================== */
-const REPO   = "Logic922/LOGIC";
-const PATH   = "school/homework.png";
-const BRANCH = "main";
-const RAW    = "https://raw.githubusercontent.com/Logic922/LOGIC/main/school/homework.png";
-/* 图源优先级：jsDelivr(sha) > jsDelivr(分支) > raw(sha) > Pages 同源 > raw(分支) > API base64 */
-const RAW_SHA = sha => `https://raw.githubusercontent.com/${REPO}/${sha}/${PATH}`;
-const CDN     = ref => `https://cdn.jsdelivr.net/gh/${REPO}@${ref}/${PATH}`;
-const T_IMG   = 20000;  /* 单级图源超时 ms：大图冷回源慢，宁可多等也不要来回切换 */
-/* 上传页跳转时带 ?sha=<commit>，直接用，省掉一次 API 往返 */
-const QS_SHA  = (new URLSearchParams(location.search).get('sha') || '')
-                  .toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 40);
+const REPO      = "Logic922/LOGIC";
+const PATH      = "school/homework.png";
+const META_PATH = "school/homework.meta.json";
+const BRANCH    = "main";
+const API       = `https://api.github.com/repos/${REPO}/contents/`;
+const FILE_PAGE = `https://github.com/${REPO}/blob/${BRANCH}/${PATH}`;
 /* ============================================== */
 
 const $ = id => document.getElementById(id);
@@ -177,112 +173,223 @@ function fmtDate(iso){
          `${p(d.getHours())}:${p(d.getMinutes())}  (${rel})`;
 }
 
-async function ghJSON(p, ms){
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms || 10000);
-  try {
-    const r = await fetch('https://api.github.com/repos/' + REPO + p, {
-      cache: 'no-store', signal: ctl.signal,
-      headers: { 'Accept': 'application/vnd.github+json' }
-    });
-    if (!r.ok) throw new Error(String(r.status));
-    return await r.json();
-  } finally { clearTimeout(t); }
+/* ==================== 数据层：只走 GitHub API ==================== */
+function apiURL(path){
+  return API + path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(BRANCH);
 }
 
-/* 元信息和图片共用同一次 commits 请求，别打两次 API */
-let metaP = null;
-function metaPromise(){
-  if (!metaP) metaP = ghJSON(`/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`, 4000);
-  return metaP;
-}
-
-/* ---------- 元信息：最近一次提交 ---------- */
-async function loadMeta(){
+/* 带超时的 fetch：网络挂住时必须能断，否则页面永远转圈 */
+async function fetchT(url, opts, ms){
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), ms);
   try {
-    const list = await metaPromise();
-    if (!list.length){
-      $('mDate').textContent = '尚无上传记录';
-      $('mDate').className = 'd warn';
-      return;
-    }
-    const c = list[0];
-    const when = (c.commit && c.commit.committer && c.commit.committer.date) || c.commit.author.date;
-    $('mDate').textContent = fmtDate(when);
-    $('mDate').className = 'd';
-    $('mSha').textContent = (c.sha || '').slice(0,7) || '—';
+    return await fetch(url, Object.assign({}, opts, { signal: ac.signal }));
   } catch(e) {
-    $('mDate').textContent = '取不到提交时间（API 限流或离线）';
-    $('mDate').className = 'd warn';
+    if (e && e.name === 'AbortError') throw new Error('超时（' + Math.round(ms / 1000) + 's）');
+    throw e;
+  } finally {
+    clearTimeout(t);
   }
 }
 
-/* ---------- 图片：jsDelivr 版本定址优先，多级兜底 ---------- */
-function trySrc(url, hint){
+/* Accept: application/vnd.github.raw → 直接拿文件字节，不经 base64/JSON 包装（省约 33% 体积） */
+async function ghRaw(path, ms){
+  const r = await fetchT(apiURL(path), {
+    headers: { 'Accept': 'application/vnd.github.raw', 'X-GitHub-Api-Version': '2022-11-28' },
+    cache: 'no-store'
+  }, ms || 20000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r;
+}
+
+/* 响应头的 Content-Type 跟着 .png 走，可能是错的（内容是 jpeg/webp）；按魔数纠正 */
+function sniffMime(buf){
+  const u = new Uint8Array(buf, 0, Math.min(16, buf.byteLength));
+  if (u[0] === 0x89 && u[1] === 0x50) return 'image/png';
+  if (u[0] === 0xFF && u[1] === 0xD8) return 'image/jpeg';
+  if (u[0] === 0x52 && u[1] === 0x49 && u[8] === 0x57 && u[9] === 0x45) return 'image/webp';
+  if (u[0] === 0x47 && u[1] === 0x49) return 'image/gif';
+  return 'image/png';
+}
+
+async function ghImage(path){
+  const buf = await (await ghRaw(path, 60000)).arrayBuffer();
+  return new Blob([buf], { type: sniffMime(buf) });
+}
+
+async function fetchMeta(){
+  try {
+    const txt = await (await ghRaw(META_PATH, 8000)).text();
+    const m = JSON.parse(txt);
+    return (m && typeof m === 'object') ? m : null;
+  } catch(_) { return null; }        // 还没写过 meta（只传过图）
+}
+
+/* meta 缺失时的兜底版本戳：最近一次提交（同为 API 端点，不是内容链路） */
+async function fetchCommit(){
+  try {
+    const r = await fetchT(`https://api.github.com/repos/${REPO}/commits?path=${encodeURIComponent(PATH)}&sha=${encodeURIComponent(BRANCH)}&per_page=1`, {
+      headers: { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      cache: 'no-store'
+    }, 8000);
+    if (!r.ok) return null;
+    const list = await r.json();
+    if (!list.length) return null;
+    const c = list[0];
+    const date = (c.commit && c.commit.committer && c.commit.committer.date)
+              || (c.commit && c.commit.author && c.commit.author.date) || '';
+    return { sha: c.sha, ts: date };
+  } catch(_) { return null; }
+}
+
+/* ---------- 本地缓存：IndexedDB 存 {ver, meta, blob} ---------- */
+const DB_NAME = 'homework-v1', STORE = 'img', KEY = 'current';
+
+function idbOpen(){
   return new Promise((res, rej) => {
-    const t = setTimeout(() => { img.onload = img.onerror = null; rej(new Error('timeout')); }, T_IMG);
-    img.onload = () => {
-      clearTimeout(t);
-      ph.style.display = 'none'; img.classList.add('on');
-      $('mSize').textContent = img.naturalWidth + '×' + img.naturalHeight + ' px';
-      $('mHint').textContent = hint;
-      res(true);
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    img.onerror = () => { clearTimeout(t); rej(new Error(url)); };
-    img.removeAttribute('src');
-    img.src = url;
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error || new Error('indexedDB'));
   });
 }
-
-async function loadImage(){
-  ph.className = 'ph'; ph.textContent = '正在载入…'; ph.style.display = 'block';
-  img.classList.remove('on');
-  $('mSize').textContent = '—'; $('mHint').textContent = '';
-
-  let sha = QS_SHA.length >= 7 ? QS_SHA : '';
-  if (!sha) {
-    try {
-      const list = await metaPromise();
-      sha = (list && list[0] && list[0].sha) || null;
-    } catch(e) { /* API 不通也不挡图，退回分支引用 */ }
-  }
-
-  const cands = [];
-  if (sha){
-    /* 有确定性 sha 时，只用内容定址的源：分支引用和 Pages 同源都可能吐出旧图 */
-    cands.push([CDN(sha), 'via jsDelivr（版本定址）']);
-    cands.push([RAW_SHA(sha), 'via raw 直链（版本定址）']);
-  } else {
-    cands.push([CDN(BRANCH), 'via jsDelivr（分支引用，可能滞后约 12h）']);
-    cands.push(['homework.png', 'via Pages 同源']);
-    cands.push([RAW, 'via raw 直链']);
-  }
-
-  for (const [u, h] of cands){
-    try { await trySrc(u, h); return; } catch(e) { /* 试下一级 */ }
-  }
-
-  /* 最后兜底：Contents API 取 base64 */
+async function cacheGet(){
   try {
-    const j = await ghJSON(`/contents/${PATH.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(BRANCH)}`, 12000);
-    const bin = atob((j.content || '').replace(/\s/g, ''));
-    const buf = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
-    $('mSize').textContent = fmtSize(j.size || buf.length);
-    await trySrc(url, 'via GitHub API（兜底）');
-    return;
-  } catch(e) { }
+    const db = await idbOpen();
+    return await new Promise(res => {
+      const t = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY);
+      t.onsuccess = () => res(t.result || null);
+      t.onerror = () => res(null);
+    });
+  } catch(_) { return null; }
+}
+async function cachePut(rec){
+  try {
+    const db = await idbOpen();
+    await new Promise(res => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(rec, KEY);
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
+      tx.onabort = () => res();
+    });
+  } catch(_) {}
+}
 
-  ph.className = 'ph';
-  ph.textContent = '图片加载失败。\n检查网络，或点「重新载入」再试。';
-  $('mSize').textContent = '—';
+/* ---------- 渲染 ---------- */
+let objURL = null;
+function showBlob(blob){
+  if (objURL) URL.revokeObjectURL(objURL);
+  objURL = URL.createObjectURL(blob);
+  img.onload = () => {
+    ph.style.display = 'none'; img.classList.add('on');
+    if (!$('mPx').textContent || $('mPx').textContent === '—')
+      $('mPx').textContent = img.naturalWidth + '×' + img.naturalHeight;
+  };
+  img.onerror = () => { ph.className = 'ph'; ph.textContent = '图片解码失败'; };
+  img.src = objURL;
+}
+
+function paintMeta(m, blob){
+  const iso = m && (m.ts || m.date);
+  $('mDate').textContent = iso ? fmtDate(iso) : '—';
+  $('mDate').className = 'd';
+  const size = (m && m.size) || (blob ? blob.size : 0);
+  $('mSize').textContent = size
+    ? fmtSize(size) + (m && m.orig ? '（原图 ' + fmtSize(m.orig) + '）' : '')
+    : '—';
+  $('mPx').textContent = (m && m.w && m.h) ? m.w + '×' + m.h
+    : (img.naturalWidth ? img.naturalWidth + '×' + img.naturalHeight : '—');
+  $('mSha').textContent = (m && m.sha256) ? m.sha256.slice(0, 12)
+    : (m && m.sha ? String(m.sha).slice(0, 7) : '—');
+}
+
+/* ---------- 主流程：先显缓存（0 等待）→ 后台比版本 → 有变化才下载 ---------- */
+let loading = false;
+
+async function loadImage(force){
+  if (loading) return;
+  loading = true;
+  const t0 = performance.now();
+  const hint = $('mHint');
+
+  try {
+    const cached = await cacheGet();
+    const hasCache = !!(cached && cached.blob);
+
+    /* 版本查询与图片下载并行发起，谁都别等谁 */
+    const metaP = fetchMeta().then(m => m || fetchCommit()).catch(() => null);
+
+    if (hasCache){
+      /* 1. 有缓存：立刻出图，网络只用于校验 */
+      showBlob(cached.blob);
+      paintMeta(cached.meta, cached.blob);
+      hint.textContent = force
+        ? '重新下载中…'
+        : '本地缓存 · ' + Math.round(performance.now() - t0) + ' ms · 校验中…';
+    } else {
+      ph.className = 'ph'; ph.textContent = '正在载入…'; ph.style.display = 'block';
+      img.classList.remove('on');
+    }
+
+    /* 2. 冷启动或强制刷新：图直接下（不等 meta） */
+    if (!hasCache || force){
+      const imgP = ghImage(PATH);
+      const blob = await imgP;
+      showBlob(blob);
+      const remote0 = await metaP;             // 信息到齐后补显示
+      const ver0 = remote0 ? (remote0.sha256 || ('c:' + remote0.sha)) : null;
+      paintMeta(remote0, blob);
+      await cachePut({ ver: ver0, meta: remote0, blob, ts: Date.now() });
+      hint.textContent = (force ? '已强制重新下载 · ' : 'API 直取（raw）· ')
+        + fmtSize(blob.size) + ' · ' + Math.round(performance.now() - t0) + ' ms';
+      if (!remote0){ $('mDate').textContent = '尚无上传记录'; $('mDate').className = 'd warn'; }
+      return;
+    }
+
+    /* 3. 有缓存：等版本戳，一致就收工 */
+    const remote = await metaP;
+    const ver = remote ? (remote.sha256 || ('c:' + remote.sha)) : null;
+    if (ver && cached.ver === ver){
+      paintMeta(remote, cached.blob);
+      hint.textContent = '缓存命中 · sha 一致 · 未下载 · ' + Math.round(performance.now() - t0) + ' ms';
+      return;
+    }
+
+    /* 4. 版本不同（或查不到版本）→ 下载 */
+    hint.textContent = '检测到新版本，下载中…';
+    const blob = await ghImage(PATH);
+    showBlob(blob);
+    paintMeta(remote, blob);
+    await cachePut({ ver, meta: remote, blob, ts: Date.now() });
+    hint.textContent = 'API 直取（raw）· ' + fmtSize(blob.size) + ' · ' + Math.round(performance.now() - t0) + ' ms';
+    if (!remote){ $('mDate').textContent = '尚无上传记录'; $('mDate').className = 'd warn'; }
+  } catch(e) {
+    const cached = await cacheGet();
+    if (cached && cached.blob){
+      showBlob(cached.blob);
+      paintMeta(cached.meta, cached.blob);
+      hint.textContent = '网络失败（' + e.message + '），显示上次缓存';
+    } else {
+      ph.className = 'ph';
+      ph.textContent = e.message === 'HTTP 404'
+        ? '还没有作业图片。\n先去「上传作业」传一张。'
+        : '载入失败：' + e.message;
+      img.classList.remove('on');
+      hint.textContent = '';
+    }
+  } finally {
+    loading = false;
+  }
 }
 
 /* ---------- 操作项（与主页菜单同一套交互） ---------- */
 const ITEMS = [
-  { n:'打开原图', d:'新标签页打开当前这张图', run(){ window.open(img.currentSrc || CDN(BRANCH), '_blank', 'noopener'); } },
-  { n:'重新载入', d:'刷新图片与上传时间',        run(){ reload(); } },
+  { n:'打开原图', d:'新标签页打开 GitHub 文件页', run(){ window.open(FILE_PAGE, '_blank', 'noopener'); } },
+  { n:'重新载入', d:'强制重新下载（不看 sha）',   run(){ reload(); } },
   { n:'上传作业', d:'换一张新的作业截图',        run(){ location.href = 'upload.html'; } },
   { n:'返回主页', d:'回到 logicmokou 主页',      run(){ location.href = '../index.html'; } }
 ];
@@ -338,7 +445,7 @@ document.addEventListener('keydown', e => {
   else if (k === 'Escape' || k === 'h' || k === 'q'){ location.href = '../index.html'; }
 });
 
-function reload(){ metaP = null; loadMeta(); loadImage(); }
+function reload(){ loadImage(true); }   /* 手动刷新：不管 sha，一律重下 */
 
 /* ---------------- kitty cursor_trail（同主页） ---------------- */
 window.__trailPos = null;
@@ -419,13 +526,7 @@ function pushRect(el){
 
 /* 初始化 */
 render();
-const fresh = new URLSearchParams(location.search).get('fresh');
-if (fresh){
-  loadImage();
-  setTimeout(loadMeta, 2500);   // 等 commit 落库
-} else {
-  reload();
-}
+loadImage();
 const app = document.querySelector('.app');
 try { app.focus({preventScroll:true}); } catch(_) {}
 </script>
