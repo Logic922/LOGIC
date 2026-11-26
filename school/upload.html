@@ -173,8 +173,15 @@ input[type=password]:focus{border-bottom-color:var(--c4)}
 const CIPHER_B64 = "JOnBpTa6VnMV9JRUvvx3GYEZw3bT4XF5pqNeMcivWOO7ZsbtS1L7Onn5bXBDwtWZJrhj+2Epwf3KpfaPoZwWuwTox4wsQCGg+wrdoe8sdgSKbR5CrkY38n6lYcZct3Czs423KPvEu9ydQMk5z2H372LY";   // 由 make-cipher.html 生成的密文
 const REPO       = "Logic922/LOGIC";
 const PATH       = "school/homework.png";
+const META_PATH  = "school/homework.meta.json";
 const BRANCH     = "main";
 const VIEW_URL   = "view.html";
+/* 压缩参数：长边超过 MAX_EDGE 才缩放；按质量阶梯降到目标体积 */
+const MAX_EDGE     = 1600;
+const TARGET_RATIO = 0.55;          // 目标体积 = min(原图 * 0.55, TARGET_MAX)
+const TARGET_MAX   = 200 * 1024;
+const MIN_SRC      = 120 * 1024;    // 小于 120 KB 的图不折腾，直接原样上传
+const KEEP_GAIN    = 0.92;          // 达不到 8% 收益就用原图
 /* ================================================================ */
 
 const $ = id => document.getElementById(id);
@@ -196,6 +203,10 @@ const BAD = '[FAILED] ';
 
 /* ---------- 状态 ---------- */
 let fileName = '', fileRef = null;
+let pack = null;        // { blob, mime, w, h, orig, sha } —— 压缩后的上传体
+let packSeq = 0;        // 换图序号，防止旧压缩结果覆盖新图
+
+const fmtKB = b => b >= 1048576 ? (b/1048576).toFixed(2) + ' MB' : (b/1024).toFixed(b >= 102400 ? 0 : 1) + ' KB';
 
 function cipherReady(){ return CIPHER_B64 && CIPHER_B64.indexOf('REPLACE') !== 0 && CIPHER_B64.length > 40; }
 
@@ -266,18 +277,128 @@ menuEl.addEventListener('click', e => {
 function useFile(f){
   const pv = $('preview'), im = $('pv');
   if (!f || !/^image\//.test(f.type || '')){
-    fileName = ''; fileRef = null; pv.classList.remove('on');
+    fileName = ''; fileRef = null; pack = null; packSeq++;
+    pv.classList.remove('on');
     refresh();
     if (f) log(PAD + 'Not an image: ' + (f.type || 'unknown'), 'err');
     return;
   }
-  fileName = (f.name || 'clipboard') + '  ' + (f.size/1024).toFixed(1) + ' KB';
-  fileRef = f;
+  fileRef = f; pack = null;
+  const seq = ++packSeq;
+  const base = (f.name || 'clipboard');
+  fileName = base + '  ' + fmtKB(f.size) + ' · 压缩中…';
+
   if (im.dataset.url) URL.revokeObjectURL(im.dataset.url);
   const url = URL.createObjectURL(f);
   im.dataset.url = url; im.src = url; pv.classList.add('on');
   logEl.innerHTML = '';
   refresh();
+
+  compressImage(f).then(p => {
+    if (seq !== packSeq) return;
+    pack = p;
+    const pct = p.orig ? Math.round((1 - p.blob.size / p.orig) * 100) : 0;
+    const tag = p.skipped ? '原图为宜'
+      : (p.mime === 'image/webp' ? 'webp' : 'jpg') + ' q' + (p.q || '') + ' · ' + p.w + '×' + p.h;
+    fileName = base + '  ' + fmtKB(p.orig) + ' → ' + fmtKB(p.blob.size)
+             + ' (−' + pct + '%)  ' + tag;
+    log(PAD + 'Compressed: ' + fmtKB(p.orig) + ' → ' + fmtKB(p.blob.size)
+        + '  ' + p.w + '×' + p.h + '  ' + (p.skipped ? 'kept original' : p.mime), 'ok');
+    log(PAD + 'sha256 ' + p.sha.slice(0, 16) + '…', 'dim');
+    refresh();
+  }).catch(err => {
+    if (seq !== packSeq) return;
+    fileName = base + '  ' + fmtKB(f.size) + ' · 压缩失败，将用原图';
+    log(PAD + 'Compress failed: ' + err.message + '（上传原图）', 'err');
+    refresh();
+  });
+}
+
+/* ---------- 压缩：canvas 重编码，长边 ≤ MAX_EDGE ---------- */
+const toBlob = (cv, type, q) => new Promise(r => { try { cv.toBlob(b => r(b), type, q || 0.9); } catch(_) { r(null); } });
+
+function loadImg(file){
+  return new Promise((res, rej) => {
+    const u = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(u); res(im); };
+    im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('图片解码失败（格式不受支持？）')); };
+    im.src = u;
+  });
+}
+
+function loadBitmap(file){
+  if (window.createImageBitmap){
+    return createImageBitmap(file).catch(() => loadImg(file));
+  }
+  return loadImg(file);
+}
+
+async function sha256Hex(buf){
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+  return Array.from(h, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function webpOK(){
+  if (window.__webpOK === undefined){
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 4;
+    const b = await toBlob(cv, 'image/webp', 0.9);
+    window.__webpOK = !!(b && b.type === 'image/webp');
+  }
+  return window.__webpOK;
+}
+
+async function compressImage(file){
+  /* 小图 / 收益不明确：不重编码，保留原始像素 */
+  if (file.size <= MIN_SRC){
+    return { blob: file, mime: file.type || 'image/png', w: 0, h: 0, orig: file.size,
+             skipped: true, sha: await sha256Hex(await file.arrayBuffer()) };
+  }
+
+  const bmp = await loadBitmap(file);
+  const ow = bmp.width || bmp.naturalWidth;
+  const oh = bmp.height || bmp.naturalHeight;
+  if (!ow || !oh) throw new Error('图片尺寸无效');
+
+  const edge = Math.max(ow, oh);
+  const k = edge > MAX_EDGE ? MAX_EDGE / edge : 1;
+  const w = Math.max(1, Math.round(ow * k));
+  const h = Math.max(1, Math.round(oh * k));
+
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = true;
+  cx.imageSmoothingQuality = 'high';
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, w, h);
+  cx.drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+
+  /* WebP 在 iOS 上不一定编码得出来，先探一次 */
+  const useWebp = await webpOK();
+  const type = useWebp ? 'image/webp' : 'image/jpeg';
+  const ladder = useWebp
+    ? [0.92, 0.84, 0.76, 0.68, 0.60]
+    : [0.86, 0.78, 0.70, 0.62, 0.54, 0.46];
+  const target = Math.min(file.size * TARGET_RATIO, TARGET_MAX);
+
+  let best = null;
+  for (const q of ladder){
+    const b = await toBlob(cv, type, q);
+    if (!b) continue;
+    best = { blob: b, q };
+    if (b.size <= target) break;          // 取到最高质量的达标档
+  }
+
+  /* 压不下来就原样上传，别让体积变大或白掉一层画质 */
+  if (!best || best.blob.size > file.size * KEEP_GAIN){
+    return { blob: file, mime: file.type || 'image/png', w: ow, h: oh, orig: file.size,
+             skipped: true, sha: await sha256Hex(await file.arrayBuffer()) };
+  }
+  return { blob: best.blob, mime: type, w, h, orig: file.size, q: best.q,
+           sha: await sha256Hex(await best.blob.arrayBuffer()) };
 }
 
 $('file').addEventListener('change', () => useFile($('file').files[0]));
@@ -367,13 +488,13 @@ async function decryptToken(password, cB64){
   return TOKEN_PREFIX + seedToTail(seed);
 }
 
-/* ---------- 文件 → Base64 ---------- */
-function fileToBase64(file){
+/* ---------- Blob → Base64 ---------- */
+function blobToBase64(blob){
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result).split(',')[1] || '');
     r.onerror = () => reject(new Error('读取文件失败'));
-    r.readAsDataURL(file);
+    r.readAsDataURL(blob);
   });
 }
 const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
@@ -395,27 +516,23 @@ async function verifyToken(token){
   return { ok: r.ok, status: r.status, message };
 }
 
-/* ---------- 上传：先取 sha，再 PUT ---------- */
-async function uploadImage(token, file){
+/* ---------- 单文件写：先取 sha，再 PUT ---------- */
+async function putFile(token, path, b64, message){
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };
-  const apiUrl = `https://api.github.com/repos/${REPO}/contents/${encodePath(PATH)}`;
+  const apiUrl = `https://api.github.com/repos/${REPO}/contents/${encodePath(path)}`;
 
   let sha;
   const g = await fetch(`${apiUrl}?ref=${encodeURIComponent(BRANCH)}`, { headers, cache:'no-store' });
   if (g.ok){ sha = (await g.json()).sha; }
   else if (g.status === 401){ throw new Error('Token 无效或已过期，请重新生成并加密'); }
   else if (g.status === 403){ throw new Error('Token 权限不足（需要 Contents: Read and write）'); }
-  else if (g.status !== 404){ throw new Error('读取文件失败：HTTP ' + g.status); }
+  else if (g.status !== 404){ throw new Error('读取 ' + path + ' 失败：HTTP ' + g.status); }
 
-  const body = {
-    message: `chore: update ${PATH} via web`,
-    content: await fileToBase64(file),
-    branch: BRANCH
-  };
+  const body = { message, content: b64, branch: BRANCH };
   if (sha) body.sha = sha;
 
   const p = await fetch(apiUrl, {
@@ -429,8 +546,31 @@ async function uploadImage(token, file){
     throw new Error(msg);
   }
   const out = await p.json();
-  /* 返回完整 40 位 sha：jsDelivr 版本定址(cdn.jsdelivr.net/gh/…@<sha>)必须用完整 sha */
-  return (out.commit && out.commit.sha) || '';
+  return (out.commit && out.commit.sha || '').slice(0, 7);
+}
+
+/* ---------- 上传：先图，后 meta（meta 指向已落地的图） ---------- */
+async function uploadImage(token, pk){
+  const imgCommit = await putFile(
+    token, PATH, await blobToBase64(pk.blob),
+    `chore: update ${PATH} via web`
+  );
+  const ts = new Date().toISOString();
+  const meta = {
+    v: 1,
+    sha256: pk.sha,
+    size: pk.blob.size,
+    w: pk.w, h: pk.h,
+    mime: pk.mime,
+    orig: pk.orig,
+    ts: ts,
+    commit: imgCommit
+  };
+  await putFile(
+    token, META_PATH, btoa(JSON.stringify(meta)),
+    `chore: update ${META_PATH} via web`
+  );
+  return imgCommit;
 }
 
 /* ---------- 主流程 ---------- */
@@ -449,8 +589,24 @@ async function doUpload(){
   focus = 0; refresh();
   keyEl.textContent = '处理中…';
 
+  /* 0. 本地压缩（不联网，先把体积降下来） */
+  let step = log(PAD + 'Compressing image locally...', 'work');
+  let pk = pack;
+  if (!pk){
+    try { pk = await compressImage(file); pack = pk; }
+    catch(e){
+      step.className = 'err';
+      step.textContent = BAD + 'Compress failed: ' + e.message;
+      busy = false; keyEl.textContent = ''; refresh();
+      return;
+    }
+  }
+  step.className = 'ok';
+  step.textContent = OK + 'Compressed ' + fmtKB(pk.orig) + ' → ' + fmtKB(pk.blob.size)
+                   + '  ' + pk.w + '×' + pk.h + '  ' + pk.mime;
+
   /* 1. 本地只还原候选凭据，不判定对错（任意密码都走到这里） */
-  let step = log(PAD + 'Deriving candidate credential (Argon2id, 256 MiB, 3 passes)...', 'work');
+  step = log(PAD + 'Deriving candidate credential (Argon2id, 256 MiB, 3 passes)...', 'work');
   let token = null;
   try {
     token = await decryptToken(password, CIPHER_B64);
@@ -490,13 +646,13 @@ async function doUpload(){
   step.className = 'ok';
   step.textContent = OK + 'GitHub accepted the credential.';
 
-  /* 3. 上传 */
-  step = log(PAD + 'Uploading ' + PATH + '...', 'work');
+  /* 3. 上传：图 + meta（含 sha256） */
+  step = log(PAD + 'Uploading ' + PATH + ' (' + fmtKB(pk.blob.size) + ')...', 'work');
   let sha = '';
   try {
-    sha = await uploadImage(token, file);
+    sha = await uploadImage(token, pk);
     step.className = 'ok';
-    step.textContent = OK + 'Uploaded ' + PATH + (sha ? ' (commit ' + sha.slice(0,7) + ')' : '');
+    step.textContent = OK + 'Uploaded ' + PATH + ' + ' + META_PATH + (sha ? ' (commit ' + sha + ')' : '');
   } catch(e) {
     step.className = 'err';
     step.textContent = BAD + e.message;
@@ -512,11 +668,11 @@ async function doUpload(){
   step.className = 'ok';
   step.textContent = OK + 'Token purged, password field cleared.';
   $('password').value = '';
-  $('file').value = ''; fileRef = null; fileName = '';
+  $('file').value = ''; fileRef = null; fileName = ''; pack = null; packSeq++;
 
-  log('         查看页会直接用本次提交的 sha 取图，无需等 Pages 重建。', 'dim');
+  log('         meta 已写入 ' + META_PATH + '（sha256 版本戳）。', 'dim');
   log('→  Redirecting to ' + VIEW_URL + ' ...', 'dim');
-  setTimeout(() => { location.replace(VIEW_URL + (sha ? '?sha=' + sha : '')); }, 900);
+  setTimeout(() => { location.replace(VIEW_URL); }, 900);
 }
 
 /* ---------------- kitty cursor_trail（同主页） ---------------- */
